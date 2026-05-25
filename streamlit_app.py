@@ -27,11 +27,8 @@ if params.get("mode") == "overlay":
             html, body, [data-testid="stAppViewContainer"], .main { background: transparent !important; }
             header, footer, #MainMenu {display: none !important;}
             .block-container {padding: 0 !important; margin: 0 !important;}
-
             .ticker-container { position: fixed; top: 15px; left: 15px; font-family: sans-serif; }
             .green-header { background: #1B5E20; color: white; padding: 5px 15px; border-radius: 8px 8px 0 0; font-size: 10px; font-weight: bold; letter-spacing: 1px; }
-            
-            /* THE BLACK STRIPE */
             .black-stripe { 
                 background: rgba(0, 0, 0, 0.9); 
                 padding: 10px 15px; 
@@ -43,15 +40,12 @@ if params.get("mode") == "overlay":
             }
             .runs-txt { font-size: 38px; font-weight: 900; line-height: 1; color: white !important; }
             .ov-txt { font-size: 18px; font-weight: bold; color: white !important; opacity: 0.8; }
-
             .target-box { background: #ffeb3b; color: black; padding: 3px 12px; border-radius: 0 0 8px 8px; font-size: 13px; font-weight: 900; width: fit-content; margin-left: 10px; }
         </style>
     """, unsafe_allow_html=True)
-    
     d = get_match()
     ov = f"{d['balls']//6}.{d['balls']%6}"
     label = "1ST INNINGS" if d['target'] == 0 else "2ND INNINGS"
-
     st.markdown(f"""
         <div class="ticker-container">
             <div class="green-header">{label}</div>
@@ -62,52 +56,59 @@ if params.get("mode") == "overlay":
             {f'<div class="target-box">TGT: {d["target"]}</div>' if d['target'] > 0 else ''}
         </div>
     """, unsafe_allow_html=True)
-
     import time
     time.sleep(2)
     st.rerun()
 
-# 2. MOBILE SCORER APP (Forced Grid)
+# 2. MOBILE SCORER APP
 else:
     st.markdown("""
         <style>
             .stApp { background-color: #FEE49B !important; }
-            
-            /* Score Header Styling */
-            .score-header { display: flex; justify-content: space-around; padding: 10px; text-align: center; }
-            .lbl { color: #4A90E2; font-size: 24px; font-weight: bold; }
-            .val { color: black; font-size: 60px; font-weight: 900; display: block; margin-top: -10px; }
+            .block-container { padding: 10px !important; }
 
-            /* BUTTON GRID (FORCING 3 COLUMNS) */
-            .stButton > button {
-                height: 85px !important; font-size: 30px !important; font-weight: 800 !important;
-                border-radius: 8px !important; color: white !important; border: none !important;
-            }
-            
-            /* Aligning buttons in rows even on mobile */
+            /* Header Section */
+            .score-header { display: flex; justify-content: space-around; text-align: center; margin-bottom: 20px; }
+            .lbl { color: #4A90E2; font-size: 28px; font-weight: bold; }
+            .val { color: black; font-size: 75px; font-weight: 900; display: block; margin-top: -15px; }
+
+            /* SQUARE BUTTON LOGIC */
             div[data-testid="stHorizontalBlock"] {
-                display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; gap: 10px !important;
+                display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; gap: 12px !important;
             }
             div[data-testid="stColumn"] { flex: 1 !important; min-width: 0 !important; }
 
-            /* Colors */
-            .btn-blue button { background-color: #4A90E2 !important; }
-            .btn-dark button { background-color: #2c3e50 !important; }
-            .btn-green button { background-color: #00B050 !important; }
-            .btn-deepblue button { background-color: #0070C0 !important; }
+            .stButton > button {
+                width: 100% !important;
+                aspect-ratio: 1 / 1 !important; /* Force Square */
+                height: auto !important;
+                font-size: 38px !important;
+                font-weight: 800 !important;
+                border-radius: 4px !important;
+                color: white !important;
+                border: 1px solid rgba(0,0,0,0.1) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+
+            /* Button Colors */
+            .btn-blue button { background-color: #A3C1E8 !important; color: black !important; }
+            .btn-green button { background-color: #00B050 !important; color: white !important; }
+            .btn-darkblue button { background-color: #0070C0 !important; color: white !important; }
             .btn-undo button { background-color: #F8B195 !important; color: black !important; font-size: 18px !important; }
             
-            .extra-title { background: #C65911; color: white; text-align: center; font-weight: bold; padding: 6px; margin: 10px 0; border-radius: 4px; }
-            .stExpander summary { color: black !important; font-weight: bold; }
+            /* Wides and No Ball Bars (Keep as original) */
+            .extra-title { background: #C65911; color: white; text-align: center; font-weight: bold; padding: 6px; margin: 15px 0 5px 0; border-radius: 2px; }
+            .extra-btn button { aspect-ratio: auto !important; height: 50px !important; font-size: 18px !important; background-color: #A3C1E8 !important; color: black !important; }
         </style>
     """, unsafe_allow_html=True)
 
     d = get_match()
     max_balls = d['match_overs'] * 6
-
     if "started" not in st.session_state: st.session_state.started = False
 
-    # START SCREEN
+    # MATCH SETUP
     if not st.session_state.started:
         st.title("🏏 Match Setup")
         ov_in = st.number_input("Match Overs", min_value=1, value=int(d['match_overs']))
@@ -116,16 +117,8 @@ else:
             st.session_state.started = True
             st.rerun()
 
-    # NEXT INNINGS PROMPT
-    elif d['balls'] >= max_balls and d['target'] == 0:
-        st.header("Innings Complete!")
-        if st.button("START 2nd INNINGS", use_container_width=True):
-            supabase.table("match_data").update({"target": d['runs'] + 1, "runs": 0, "balls": 0}).eq("id", 1).execute()
-            st.rerun()
-
-    # SCORING BOARD
+    # SCORING
     else:
-        # Score display
         st.markdown(f"""
             <div class="score-header">
                 <div><span class="lbl">SCORE</span><span class="val">{d['runs']}</span></div>
@@ -133,39 +126,39 @@ else:
             </div>
         """, unsafe_allow_html=True)
 
-        if d['target'] > 0: st.info(f"Target: {d['target']} | Need {d['target']-d['runs']} from {max_balls-d['balls']} balls")
+        if d['target'] > 0: st.info(f"Target: {d['target']} | Need {d['target']-d['runs']} runs")
 
-        # Row 1: 1, 2, 3
-        c1, c2, c3 = st.columns(3)
-        with c1: st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
-        if c1.button("1", key="1"): update_db(1, 1); st.rerun()
-        with c2: st.markdown('<div class="btn-dark">', unsafe_allow_html=True)
-        if c2.button("2", key="2"): update_db(2, 1); st.rerun()
-        with c3: st.markdown('<div class="btn-dark">', unsafe_allow_html=True)
-        if c3.button("3", key="3"): update_db(3, 1); st.rerun()
+        # Row 1: 1, 2, 3 (Square & Blue)
+        r1c1, r1c2, r1c3 = st.columns(3)
+        with r1c1: st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
+        if r1c1.button("1", key="1"): update_db(1, 1); st.rerun()
+        with r1c2: st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
+        if r1c2.button("2", key="2"): update_db(2, 1); st.rerun()
+        with r1c3: st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
+        if r1c3.button("3", key="3"): update_db(3, 1); st.rerun()
 
-        # Row 2: 4, 6, UNDO
-        c4, c5, c6 = st.columns(3)
-        with c4: st.markdown('<div class="btn-green">', unsafe_allow_html=True)
-        if c4.button("4", key="4"): update_db(4, 1); st.rerun()
-        with c5: st.markdown('<div class="btn-deepblue">', unsafe_allow_html=True)
-        if c5.button("6", key="6"): update_db(6, 1); st.rerun()
-        with c6: st.markdown('<div class="btn-undo">', unsafe_allow_html=True)
-        if c6.button("UNDO", key="un"): update_db(-1, -1); st.rerun()
+        # Row 2: 4, 6, UNDO (Square & Colored)
+        r2c1, r2c2, r2c3 = st.columns(3)
+        with r2c1: st.markdown('<div class="btn-green">', unsafe_allow_html=True)
+        if r2c1.button("4", key="4"): update_db(4, 1); st.rerun()
+        with r2c2: st.markdown('<div class="btn-darkblue">', unsafe_allow_html=True)
+        if r2c2.button("6", key="6"): update_db(6, 1); st.rerun()
+        with r2c3: st.markdown('<div class="btn-undo">', unsafe_allow_html=True)
+        if r2c3.button("UNDO", key="un"): update_db(-1, -1); st.rerun()
 
-        # Wides
-        st.markdown('<div class="extra-title">WIDES</div>', unsafe_allow_html=True)
+        # Wides (Rectangles)
+        st.markdown('<div class="extra-title">Wides</div>', unsafe_allow_html=True)
         wcols = st.columns(5)
         for i in range(5):
-            with wcols[i]: st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
-            if wcols[i].button(f"W{i}", key=f"w{i}"): update_db(1+i, 0); st.rerun()
+            with wcols[i]: st.markdown('<div class="extra-btn">', unsafe_allow_html=True)
+            if wcols[i].button(f"W+{i}", key=f"w{i}"): update_db(1+i, 0); st.rerun()
 
-        # No Balls
-        st.markdown('<div class="extra-title">NO BALL</div>', unsafe_allow_html=True)
+        # No Ball (Rectangles)
+        st.markdown('<div class="extra-title">No Ball</div>', unsafe_allow_html=True)
         ncols = st.columns(7)
         for i in range(7):
-            with ncols[i]: st.markdown('<div class="btn-blue">', unsafe_allow_html=True)
-            if ncols[i].button(f"N{i}", key=f"n{i}"): update_db(1+i, 0); st.rerun()
+            with ncols[i]: st.markdown('<div class="extra-btn">', unsafe_allow_html=True)
+            if ncols[i].button(f"N+{i}", key=f"n{i}"): update_db(1+i, 0); st.rerun()
 
         with st.expander("⚙️ Settings"):
             if st.button("RESET ALL"):
