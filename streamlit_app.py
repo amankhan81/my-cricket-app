@@ -432,4 +432,58 @@ else:
             c1, c2, c3 = st.columns(3)
             with c1:
                 st.markdown('<div class="main-btn">', unsafe_allow_html=True)
-                if st.button("1", key="b
+                if st.button("1", key="b1", use_container_width=True): update_score(1, 1); st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with c2:
+                st.markdown('<div class="main-btn">', unsafe_allow_html=True)
+                if st.button("2", key="b2", use_container_width=True): update_score(2, 1); st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with c3:
+                st.markdown('<div class="main-btn">', unsafe_allow_html=True)
+                if st.button("3", key="b3", use_container_width=True): update_score(3, 1); st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # Row 2: 4, 6, UNDO
+            c4, c5, c6 = st.columns(3)
+            with c4:
+                st.markdown('<div class="main-btn btn-four">', unsafe_allow_html=True)
+                if st.button("4", key="b4", use_container_width=True): update_score(4, 1); st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with c5:
+                st.markdown('<div class="main-btn btn-six">', unsafe_allow_html=True)
+                if st.button("6", key="b6", use_container_width=True): update_score(6, 1); st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with c6:
+                st.markdown('<div class="btn-undo">', unsafe_allow_html=True)
+                if st.button("UNDO", key="bun", use_container_width=True): update_score(0, 0, is_undo=True); st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # Wides
+            st.markdown('<div class="section-hdr">Wides</div>', unsafe_allow_html=True)
+            wcols = st.columns(5)
+            for i in range(5):
+                with wcols[i]:
+                    st.markdown('<div class="extra-btn">', unsafe_allow_html=True)
+                    if st.button(f"W+{i}", key=f"w{i}", use_container_width=True):
+                        update_score(1 + i, 0); st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+            # No Ball
+            st.markdown('<div class="section-hdr">No Ball</div>', unsafe_allow_html=True)
+            ncols = st.columns(7)
+            for i in range(7):
+                with ncols[i]:
+                    st.markdown('<div class="extra-btn">', unsafe_allow_html=True)
+                    if st.button(f"N+{i}", key=f"n{i}", use_container_width=True):
+                        update_score(1 + i, 0); st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+            # Reset
+            st.markdown('<div class="reset-btn">', unsafe_allow_html=True)
+            if st.button("RESET MATCH", key="reset", use_container_width=True):
+                st.session_state.started = False
+                supabase.table("match_data").update({
+                    "runs": 0, "balls": 0, "history": "[]", "innings": 1, "innings1_runs": 0
+                }).eq("id", 1).execute()
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
