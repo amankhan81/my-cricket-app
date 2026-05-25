@@ -19,35 +19,42 @@ def update_db(updates):
 # --- APP LOGIC ---
 params = st.query_params
 
-# 1. OVERLAY VIEW (Ticker with forced transparency and Dark Green theme)
+# 1. OVERLAY VIEW (No Blinking, No Animation, Dark Green)
 if params.get("mode") == "overlay":
+    # The 'refresh' content="3" below tells the browser to update every 3 seconds without a Python loop
     st.markdown("""
+        <head>
+            <meta http-equiv="refresh" content="3">
+        </head>
         <style>
-            /* EXTREME TRANSPARENCY OVERRIDE */
+            /* COMPLETE TRANSPARENCY */
             html, body, [data-testid="stAppViewContainer"], 
             [data-testid="stHeader"], .main, .block-container,
-            [data-testid="stVerticalBlock"], [data-testid="stApp"] {
+            [data-testid="stVerticalBlock"], [data-testid="stApp"],
+            [data-testid="stAppViewBlockContainer"] {
                 background: transparent !important;
                 background-color: transparent !important;
-                background-image: none !important;
             }
             
             /* Hide Streamlit elements */
             header, footer, #MainMenu, [data-testid="stDecoration"] {
                 display: none !important;
-                visibility: hidden !important;
             }
             
-            /* Remove padding and stop blinking/animations */
+            /* KILL ALL ANIMATIONS */
+            * { 
+                transition: none !important; 
+                animation: none !important; 
+                text-decoration: none !important;
+            }
+
             .block-container {padding: 0 !important; margin: 0 !important;}
-            * { transition: none !important; animation: none !important; }
 
             .ticker-container {
                 position: fixed;
                 top: 10px;
                 left: 10px;
                 font-family: 'Arial Black', sans-serif;
-                z-index: 999999;
             }
 
             .main-box {
@@ -58,24 +65,22 @@ if params.get("mode") == "overlay":
                 flex-direction: column;
                 min-width: 220px;
                 box-shadow: 4px 4px 15px rgba(0,0,0,0.5);
-                border: 1px solid rgba(255,255,255,0.1);
             }
 
             .innings-label {
-                color: #FFFFFF !important; /* WHITE TEXT */
+                color: #FFFFFF !important;
                 font-size: 11px;
                 font-weight: bold;
                 text-transform: uppercase;
                 letter-spacing: 2px;
                 margin-bottom: 2px;
-                opacity: 0.9;
             }
 
             .score-row {
                 display: flex;
                 align-items: baseline;
                 gap: 10px;
-                color: #FFFFFF !important; /* WHITE TEXT */
+                color: #FFFFFF !important;
             }
 
             .runs {
@@ -101,8 +106,7 @@ if params.get("mode") == "overlay":
                 font-weight: bold;
                 width: fit-content;
                 margin-left: 15px;
-                border: 1px solid rgba(255,255,255,0.1);
-                border-top: none;
+                margin-top: -1px;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -123,14 +127,8 @@ if params.get("mode") == "overlay":
             {f'<div class="target-box">Target {d["target"]}</div>' if d['target'] > 0 else ''}
         </div>
     """, unsafe_allow_html=True)
-    
-    # Slower refresh to stop the blinking (checks every 3 seconds)
-    st.empty()
-    import time
-    time.sleep(3)
-    st.rerun()
 
-# 2. MAIN APP (Scorer Phone Interface)
+# 2. MAIN APP (Scorer Interface)
 else:
     st.markdown("""
         <style>
