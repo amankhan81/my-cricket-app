@@ -87,36 +87,88 @@ if params.get("mode") == "overlay":
             }
             .ticker-icon { font-size: 18px; line-height: 1; opacity: 0.85; }
             .ticker-score { font-size: 42px; font-weight: 700; color: #ffffff; line-height: 1; letter-spacing: -1px; }
-            .ticker-sep { width: 1px; height: 36px; background: rgba(255,255,255,0.15); flex-shrink: 0; }
-            .ticker-overs { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
-            .ticker-overs-lbl { font-family: 'Roboto Condensed', sans-serif; font-size: 9px; letter-spacing: 2px; color: rgba(255,255,255,0.4); text-transform: uppercase; }
-            .ticker-overs-val { font-size: 20px; font-weight: 700; color: #f0c040; line-height: 1; }
-            .ticker-innings { font-family: 'Roboto Condensed', sans-serif; font-size: 9px; letter-spacing: 1.5px; color: rgba(255,255,255,0.3); text-transform: uppercase; align-self: flex-end; padding-bottom: 2px; }
+            .ticker-sep { width: 1px; height: 36px; background: rgba(255,255,255,0.25); flex-shrink: 0; }
+
+            .ticker-block { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+            .ticker-lbl { font-family: 'Roboto Condensed', sans-serif; font-size: 9px; letter-spacing: 2px; color: #ffffff; text-transform: uppercase; opacity: 0.75; }
+            .ticker-val { font-size: 20px; font-weight: 700; color: #f0c040; line-height: 1; }
+
+            .ticker-innings {
+                font-family: 'Roboto Condensed', sans-serif;
+                font-size: 9px; letter-spacing: 1.5px;
+                color: #ffffff; opacity: 0.6;
+                text-transform: uppercase;
+                align-self: flex-end;
+                padding-bottom: 2px;
+            }
+
+            /* Target block — gold background pill for 2nd innings */
+            .ticker-target-block {
+                display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+            }
+            .ticker-target-lbl {
+                font-family: 'Roboto Condensed', sans-serif;
+                font-size: 9px; letter-spacing: 2px;
+                color: #ffffff; text-transform: uppercase; opacity: 0.75;
+            }
+            .ticker-target-val {
+                font-size: 20px; font-weight: 700;
+                color: #ff6b6b;
+                line-height: 1;
+            }
+            .ticker-target-val.achieved { color: #6fcf97; }
         </style>
     """, unsafe_allow_html=True)
 
     d = get_match()
-    innings     = int(d.get("innings") or 1)
-    overs_str   = f"{d['balls']//6}.{d['balls']%6}"
-    max_overs   = int(d['match_overs'])
-    innings_lbl = f"INN {innings}"
+    innings       = int(d.get("innings") or 1)
+    innings1_runs = int(d.get("innings1_runs") or 0)
+    current_runs  = int(d["runs"])
+    current_balls = int(d["balls"])
+    max_overs     = int(d["match_overs"])
+    max_balls     = max_overs * 6
+    overs_str     = f"{current_balls//6}.{current_balls%6}"
+    innings_lbl   = f"INN {innings}"
+
+    # Build target block for 2nd innings
+    target_html = ""
+    if innings == 2:
+        needed = innings1_runs - current_runs + 1
+        if needed > 0:
+            target_html = f"""
+                <div class="ticker-sep"></div>
+                <div class="ticker-target-block">
+                    <div class="ticker-target-lbl">Need</div>
+                    <div class="ticker-target-val">{needed}</div>
+                </div>
+            """
+        else:
+            target_html = f"""
+                <div class="ticker-sep"></div>
+                <div class="ticker-target-block">
+                    <div class="ticker-target-lbl">Target</div>
+                    <div class="ticker-target-val achieved">✓ Done</div>
+                </div>
+            """
 
     st.markdown(f"""
         <div class="ticker">
             <div class="ticker-accent"></div>
             <div class="ticker-body">
                 <div class="ticker-icon">🏏</div>
-                <div class="ticker-score">{d['runs']}</div>
+                <div class="ticker-score">{current_runs}</div>
                 <div class="ticker-sep"></div>
-                <div class="ticker-overs">
-                    <div class="ticker-overs-lbl">Overs</div>
-                    <div class="ticker-overs-val">{overs_str}</div>
+                <div class="ticker-block">
+                    <div class="ticker-lbl">Overs</div>
+                    <div class="ticker-val">{overs_str}</div>
                 </div>
                 <div class="ticker-sep"></div>
-                <div class="ticker-overs">
-                    <div class="ticker-overs-lbl">Max</div>
-                    <div class="ticker-overs-val">{max_overs}</div>
+                <div class="ticker-block">
+                    <div class="ticker-lbl">Max Overs</div>
+                    <div class="ticker-val">{max_overs}</div>
                 </div>
+                {target_html}
+                <div class="ticker-sep"></div>
                 <div class="ticker-innings">{innings_lbl}</div>
             </div>
         </div>
