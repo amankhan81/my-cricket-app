@@ -19,80 +19,90 @@ def update_db(updates):
 # --- APP LOGIC ---
 params = st.query_params
 
-# 1. OVERLAY VIEW (Ticker with forced transparency)
+# 1. OVERLAY VIEW (Ticker with forced transparency and Dark Green theme)
 if params.get("mode") == "overlay":
     st.markdown("""
         <style>
-            /* FORCE TOTAL TRANSPARENCY */
+            /* EXTREME TRANSPARENCY OVERRIDE */
             html, body, [data-testid="stAppViewContainer"], 
-            [data-testid="stHeader"], .main, .block-container {
-                background-color: rgba(0,0,0,0) !important;
+            [data-testid="stHeader"], .main, .block-container,
+            [data-testid="stVerticalBlock"], [data-testid="stApp"] {
                 background: transparent !important;
+                background-color: transparent !important;
+                background-image: none !important;
             }
-            header, footer, #MainMenu {visibility: hidden; display: none;}
             
-            /* Remove Streamlit padding/animations */
+            /* Hide Streamlit elements */
+            header, footer, #MainMenu, [data-testid="stDecoration"] {
+                display: none !important;
+                visibility: hidden !important;
+            }
+            
+            /* Remove padding and stop blinking/animations */
             .block-container {padding: 0 !important; margin: 0 !important;}
-            .stApp { overflow: hidden; }
-            
-            /* Disable Fading/Transition Animations */
             * { transition: none !important; animation: none !important; }
 
             .ticker-container {
-                position: absolute;
-                top: 20px;
-                left: 20px;
-                font-family: 'Arial Black', Gadget, sans-serif;
-                display: flex;
-                flex-direction: column;
-                gap: 0px;
+                position: fixed;
+                top: 10px;
+                left: 10px;
+                font-family: 'Arial Black', sans-serif;
+                z-index: 999999;
             }
 
             .main-box {
-                background: #8bc34a; /* Green */
-                padding: 10px 18px;
+                background: #1B5E20; /* DARK GREEN */
+                padding: 12px 20px;
                 border-radius: 8px;
                 display: flex;
                 flex-direction: column;
-                min-width: 200px;
-                box-shadow: 2px 2px 8px rgba(0,0,0,0.4);
+                min-width: 220px;
+                box-shadow: 4px 4px 15px rgba(0,0,0,0.5);
+                border: 1px solid rgba(255,255,255,0.1);
             }
 
             .innings-label {
-                color: white;
-                font-size: 12px;
+                color: #FFFFFF !important; /* WHITE TEXT */
+                font-size: 11px;
                 font-weight: bold;
                 text-transform: uppercase;
+                letter-spacing: 2px;
                 margin-bottom: 2px;
+                opacity: 0.9;
             }
 
             .score-row {
                 display: flex;
                 align-items: baseline;
-                gap: 8px;
-                color: white; /* Forced white text */
+                gap: 10px;
+                color: #FFFFFF !important; /* WHITE TEXT */
             }
 
             .runs {
-                font-size: 34px;
+                font-size: 38px;
                 font-weight: 900;
                 line-height: 1;
+                color: #FFFFFF !important;
             }
 
             .overs {
                 font-size: 18px;
                 font-weight: 600;
+                color: #FFFFFF !important;
+                opacity: 0.8;
             }
 
             .target-box {
-                background: #1a1a1a;
-                color: white;
-                padding: 4px 12px;
-                border-radius: 0 0 6px 6px;
-                font-size: 13px;
+                background: #000000;
+                color: #FFFFFF !important;
+                padding: 5px 12px;
+                border-radius: 0 0 8px 8px;
+                font-size: 14px;
                 font-weight: bold;
                 width: fit-content;
-                margin-left: 10px;
+                margin-left: 15px;
+                border: 1px solid rgba(255,255,255,0.1);
+                border-top: none;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -113,6 +123,11 @@ if params.get("mode") == "overlay":
             {f'<div class="target-box">Target {d["target"]}</div>' if d['target'] > 0 else ''}
         </div>
     """, unsafe_allow_html=True)
+    
+    # Slower refresh to stop the blinking (checks every 3 seconds)
+    st.empty()
+    import time
+    time.sleep(3)
     st.rerun()
 
 # 2. MAIN APP (Scorer Phone Interface)
@@ -121,7 +136,7 @@ else:
         <style>
         .stButton>button { height: 80px; font-size: 22px !important; font-weight: bold; border-radius: 10px; }
         div[data-testid="column"]:nth-of-type(2) .stButton>button, 
-        div[data-testid="column"]:nth-of-type(3) .stButton>button { border-bottom: 5px solid #8bc34a; }
+        div[data-testid="column"]:nth-of-type(3) .stButton>button { border-bottom: 5px solid #1B5E20; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -132,15 +147,10 @@ else:
     max_balls = d['match_overs'] * 6
 
     # INNINGS COMPLETE PROMPT
-    if d['balls'] >= max_balls:
-        st.warning(f"Innings Complete! {d['match_overs']} Overs finished.")
-        if st.button("START NEXT INNINGS", use_container_width=True, type="primary"):
-            # Set target as current runs + 1 and reset score/balls
+    if d['balls'] >= max_balls and d['target'] == 0:
+        st.success(f"1st Innings Complete! Total Score: {d['runs']}")
+        if st.button("START 2nd INNINGS", use_container_width=True, type="primary"):
             update_db({"target": d['runs'] + 1, "runs": 0, "balls": 0})
-            st.rerun()
-        if st.button("New Match / Reset Entirely", use_container_width=True):
-            st.session_state.started = False
-            update_db({"target": 0, "runs": 0, "balls": 0})
             st.rerun()
 
     # START SCREEN
