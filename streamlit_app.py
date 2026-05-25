@@ -103,21 +103,23 @@ if params.get("mode") == "overlay":
     innings1_runs = int(d.get("innings1_runs") or 0)
     current_runs  = int(d["runs"])
     needed        = innings1_runs - current_runs + 1
+    target_val    = innings1_runs + 1
+    need_val      = max(0, needed)
+    need_color    = "#ff6b6b" if needed > 0 else "#6fcf97"
 
     if innings == 2:
-        target_color = "#ff6b6b" if needed > 0 else "#6fcf97"
-        target_html = f"""
-                <div class="ticker-sep"></div>
-                <div class="ticker-overs">
-                    <div class="ticker-overs-lbl">Target</div>
-                    <div class="ticker-overs-val" style="color:#c8c8c8;">{innings1_runs + 1}</div>
-                </div>
-                <div class="ticker-sep"></div>
-                <div class="ticker-overs">
-                    <div class="ticker-overs-lbl">Need</div>
-                    <div class="ticker-overs-val" style="color:{target_color};">{max(0, needed)}</div>
-                </div>
-        """
+        target_html = (
+            '<div class="ticker-sep"></div>'
+            '<div class="ticker-overs">'
+            '<div class="ticker-overs-lbl">Target</div>'
+            f'<div class="ticker-overs-val" style="color:#c8c8c8;">{target_val}</div>'
+            '</div>'
+            '<div class="ticker-sep"></div>'
+            '<div class="ticker-overs">'
+            '<div class="ticker-overs-lbl">Need</div>'
+            f'<div class="ticker-overs-val" style="color:{need_color};">{need_val}</div>'
+            '</div>'
+        )
     else:
         target_html = ""
 
