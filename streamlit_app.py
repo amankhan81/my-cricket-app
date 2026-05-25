@@ -72,10 +72,10 @@ else:
             /* Square Scoring Buttons */
             .scoring-btn button {
                 width: 100% !important;
-                aspect-ratio: 1 / 1 !important;
+                aspect-ratio: 3 / 3 !important;
                 background-color: black !important;
                 color: white !important;
-                font-size: 32px !important;
+                font-size: 40px !important;
                 font-weight: bold !important;
                 border: none !important;
                 border-radius: 2px !important;
