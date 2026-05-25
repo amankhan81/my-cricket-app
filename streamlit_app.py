@@ -48,54 +48,64 @@ else:
     st.markdown("""
         <style>
             .stApp { background-color: #CCCCCC !important; }
-            .block-container { padding: 10px !important; }
+            .block-container { padding: 5px !important; } /* Minimum container padding */
 
-            /* Adjusted Header Font Sizes */
-            .score-header { display: flex; justify-content: space-around; text-align: center; margin-bottom: 10px; }
-            .lbl { color: black; font-size: 22px; font-weight: bold; }
-            .val { color: black; font-size: 55px; font-weight: 900; display: block; margin-top: -5px; }
+            /* Header Font Sizes */
+            .score-header { display: flex; justify-content: space-around; text-align: center; margin-bottom: 5px; }
+            .lbl { color: black; font-size: 18px; font-weight: bold; }
+            .val { color: black; font-size: 50px; font-weight: 900; display: block; margin-top: -5px; }
 
-            /* FORCED GRID FOR 2:2 BUTTONS */
+            /* FORCED COMPACT GRID FOR 1:1 BUTTONS */
             [data-testid="stHorizontalBlock"] {
                 display: flex !important;
                 flex-direction: row !important;
                 flex-wrap: nowrap !important;
-                gap: 5px !important;
+                gap: 4px !important; /* MINIMUM GAP */
                 align-items: stretch !important;
             }
             [data-testid="stColumn"] {
                 flex: 1 1 0% !important;
                 min-width: 0 !important;
+                padding: 0 !important; /* Remove column padding */
             }
 
-            /* Main Buttons Styling */
-            .stButton > button {
+            /* Square Scoring Buttons */
+            .scoring-btn button {
                 width: 100% !important;
                 aspect-ratio: 1 / 1 !important;
                 background-color: black !important;
                 color: white !important;
-                font-size: 28px !important;
+                font-size: 32px !important;
                 font-weight: bold !important;
                 border: none !important;
-                border-radius: 0px !important;
+                border-radius: 2px !important;
                 padding: 0px !important;
             }
             
-            /* Smaller Font for Extras */
+            /* Section Headers */
+            .section-hdr { background-color: black; color: white; text-align: center; font-size: 20px; font-weight: bold; padding: 5px; margin: 10px 0 2px 0; }
+            
+            /* Extras Buttons */
             .extra-btn button {
                 aspect-ratio: auto !important;
-                height: 50px !important;
-                font-size: 16px !important;
+                height: 45px !important;
+                font-size: 14px !important;
+                background-color: black !important;
+                color: white !important;
+                border: 1px solid #333 !important;
             }
 
-            .section-hdr { background-color: black; color: white; text-align: center; font-size: 24px; font-weight: bold; padding: 8px; margin: 15px 0 5px 0; }
-            
-            /* Full width reset button */
-            .reset-btn button {
+            /* FULL WIDTH RESET/START BUTTON */
+            .full-width-btn button {
                 aspect-ratio: auto !important;
                 height: 60px !important;
-                font-size: 20px !important;
-                border-radius: 4px !important;
+                font-size: 22px !important;
+                background-color: black !important;
+                color: white !important;
+                width: 100% !important;
+                border-radius: 0px !important;
+                border: none !important;
+                margin-top: 10px;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -107,8 +117,8 @@ else:
     if not st.session_state.started:
         st.markdown("<h2 style='color:black; text-align:center;'>Match Setup</h2>", unsafe_allow_html=True)
         ov_in = st.number_input("Overs", min_value=1, value=int(d['match_overs']))
-        st.markdown('<div class="reset-btn">', unsafe_allow_html=True)
-        if st.button("START MATCH", use_container_width=True):
+        st.markdown('<div class="full-width-btn">', unsafe_allow_html=True)
+        if st.button("START MATCH"):
             supabase.table("match_data").update({"match_overs": ov_in, "runs": 0, "balls": 0, "target": 0}).eq("id", 1).execute()
             st.session_state.started = True
             st.rerun()
@@ -123,17 +133,22 @@ else:
             </div>
         """, unsafe_allow_html=True)
 
-        # Row 1: 1, 2, 3 (Forced Equal Size)
+        # Row 1: 1, 2, 3
         r1 = st.columns(3)
-        if r1[0].button("1", key="1"): update_db(1, 1); st.rerun()
-        if r1[1].button("2", key="2"): update_db(2, 1); st.rerun()
-        if r1[2].button("3", key="3"): update_db(3, 1); st.rerun()
+        for i, val in enumerate(["1", "2", "3"]):
+            with r1[i]: st.markdown('<div class="scoring-btn">', unsafe_allow_html=True)
+            if r1[i].button(val, key=val): update_db(int(val), 1); st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        # Row 2: 4, 6, UNDO (Forced Equal Size)
+        # Row 2: 4, 6, UNDO
         r2 = st.columns(3)
+        with r2[0]: st.markdown('<div class="scoring-btn">', unsafe_allow_html=True)
         if r2[0].button("4", key="4"): update_db(4, 1); st.rerun()
+        with r2[1]: st.markdown('<div class="scoring-btn">', unsafe_allow_html=True)
         if r2[1].button("6", key="6"): update_db(6, 1); st.rerun()
+        with r2[2]: st.markdown('<div class="scoring-btn">', unsafe_allow_html=True)
         if r2[2].button("UNDO", key="un"): update_db(-1, -1); st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
         # Wides
         st.markdown('<div class="section-hdr">Wides</div>', unsafe_allow_html=True)
@@ -149,8 +164,8 @@ else:
             with ncols[i]: st.markdown('<div class="extra-btn">', unsafe_allow_html=True)
             if ncols[i].button(f"N+{i}", key=f"n{i}"): update_db(1+i, 0); st.rerun()
 
-        # Reset Match Button
-        st.markdown('<br><div class="reset-btn">', unsafe_allow_html=True)
+        # Full Width Reset Match Button
+        st.markdown('<div class="full-width-btn">', unsafe_allow_html=True)
         if st.button("Reset Match", key="reset"):
             st.session_state.started = False
             supabase.table("match_data").update({"runs":0, "balls":0, "target":0}).eq("id", 1).execute()
