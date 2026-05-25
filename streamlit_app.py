@@ -89,24 +89,44 @@ if params.get("mode") == "overlay":
             .ticker-score { font-size: 42px; font-weight: 700; color: #ffffff; line-height: 1; letter-spacing: -1px; }
             .ticker-sep { width: 1px; height: 36px; background: rgba(255,255,255,0.15); flex-shrink: 0; }
             .ticker-overs { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
-            .ticker-overs-lbl { font-family: 'Roboto Condensed', sans-serif; font-size: 9px; letter-spacing: 2px; color: rgba(255,255,255,0.4); text-transform: uppercase; }
+            .ticker-overs-lbl { font-family: 'Roboto Condensed', sans-serif; font-size: 9px; letter-spacing: 2px; color: rgba(255,255,255,1); text-transform: uppercase; }
             .ticker-overs-val { font-size: 20px; font-weight: 700; color: #f0c040; line-height: 1; }
-            .ticker-innings { font-family: 'Roboto Condensed', sans-serif; font-size: 9px; letter-spacing: 1.5px; color: rgba(255,255,255,0.3); text-transform: uppercase; align-self: flex-end; padding-bottom: 2px; }
+            .ticker-innings { font-family: 'Roboto Condensed', sans-serif; font-size: 9px; letter-spacing: 1.5px; color: rgba(255,255,255,1); text-transform: uppercase; align-self: flex-end; padding-bottom: 2px; }
         </style>
     """, unsafe_allow_html=True)
 
     d = get_match()
-    innings     = int(d.get("innings") or 1)
-    overs_str   = f"{d['balls']//6}.{d['balls']%6}"
-    max_overs   = int(d['match_overs'])
-    innings_lbl = f"INN {innings}"
+    innings       = int(d.get("innings") or 1)
+    overs_str     = f"{d['balls']//6}.{d['balls']%6}"
+    max_overs     = int(d['match_overs'])
+    innings_lbl   = f"INN {innings}"
+    innings1_runs = int(d.get("innings1_runs") or 0)
+    current_runs  = int(d["runs"])
+    needed        = innings1_runs - current_runs + 1
+
+    if innings == 2:
+        target_color = "#ff6b6b" if needed > 0 else "#6fcf97"
+        target_html = f"""
+                <div class="ticker-sep"></div>
+                <div class="ticker-overs">
+                    <div class="ticker-overs-lbl">Target</div>
+                    <div class="ticker-overs-val" style="color:#c8c8c8;">{innings1_runs + 1}</div>
+                </div>
+                <div class="ticker-sep"></div>
+                <div class="ticker-overs">
+                    <div class="ticker-overs-lbl">Need</div>
+                    <div class="ticker-overs-val" style="color:{target_color};">{max(0, needed)}</div>
+                </div>
+        """
+    else:
+        target_html = ""
 
     st.markdown(f"""
         <div class="ticker">
             <div class="ticker-accent"></div>
             <div class="ticker-body">
                 <div class="ticker-icon">🏏</div>
-                <div class="ticker-score">{d['runs']}</div>
+                <div class="ticker-score">{current_runs}</div>
                 <div class="ticker-sep"></div>
                 <div class="ticker-overs">
                     <div class="ticker-overs-lbl">Overs</div>
@@ -117,6 +137,7 @@ if params.get("mode") == "overlay":
                     <div class="ticker-overs-lbl">Max</div>
                     <div class="ticker-overs-val">{max_overs}</div>
                 </div>
+                {target_html}
                 <div class="ticker-innings">{innings_lbl}</div>
             </div>
         </div>
@@ -410,4 +431,3 @@ else:
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
             st.markdown('<div class="credit"><span>Created by <strong>Amanullah Khan</strong></span></div>', unsafe_allow_html=True)
-
