@@ -10,8 +10,9 @@ supabase = create_client(URL, KEY)
 # --- DATA HELPERS ---
 def get_match():
     try:
+        # Fetches the live data from Supabase
         return supabase.table("match_data").select("*").eq("id", 1).single().execute().data
-    except:
+    except Exception as e:
         return {"runs": 0, "balls": 0, "match_overs": 8, "target": 0}
 
 def update_db(runs_inc, balls_inc):
@@ -24,121 +25,145 @@ def update_db(runs_inc, balls_inc):
 # --- APP LOGIC ---
 params = st.query_params
 
-# 1. DATA API (Hidden - Fixes the Overlay Update issue)
+# 1. DATA API (Hidden: This is what the Ticker talks to)
 if params.get("mode") == "data":
     st.write(json.dumps(get_match()))
     st.stop()
 
-# 2. OVERLAY TICKER (No-Blink & Transparent)
+# 2. OVERLAY TICKER (Transparent, Professional, Automatic Updates)
 elif params.get("mode") == "overlay":
     st.markdown("""
         <style>
-            html, body, [data-testid="stAppViewContainer"] { background: transparent !important; }
+            html, body, [data-testid="stAppViewContainer"], .main { background: transparent !important; }
             header, footer, #MainMenu {display: none !important;}
-            .ticker {
-                position: fixed; top: 10px; left: 10px;
-                background: #1B5E20; color: white; padding: 12px;
-                border-radius: 8px; font-family: sans-serif; min-width: 200px;
+            .block-container {padding: 0 !important; margin: 0 !important;}
+
+            .ticker-box {
+                position: fixed; top: 15px; left: 15px;
+                background: #1B5E20; color: white; padding: 12px 20px;
+                border-radius: 10px; font-family: 'Arial', sans-serif;
+                min-width: 220px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
             }
-            .runs { font-size: 32px; font-weight: 900; }
-            .target { background: black; padding: 4px 10px; border-radius: 0 0 5px 5px; font-size: 14px; }
+            .runs-val { font-size: 36px; font-weight: 900; line-height: 1; }
+            .ov-val { font-size: 18px; opacity: 0.9; }
+            .target-tag { background: black; padding: 3px 10px; border-radius: 0 0 5px 5px; font-size: 13px; font-weight: bold; width: fit-content; margin-top: 5px; }
         </style>
-        <div class="ticker">
-            <div id="lbl" style="font-size:10px;">1ST INNINGS</div>
-            <div class="runs"><span id="r">0</span> <small id="ov" style="font-size:16px;">(0.0)</small></div>
-            <div id="t_box" class="target" style="display:none;">Target <span id="t">0</span></div>
+
+        <div class="ticker-box">
+            <div id="status" style="font-size: 10px; letter-spacing: 1px; font-weight: bold;">LIVE MATCH</div>
+            <div class="runs-val">
+                <span id="r_val">0</span> <span class="ov-val" id="ov_val">(0.0)</span>
+            </div>
+            <div id="tgt_tag" class="target-tag" style="display:none;">TARGET: <span id="t_val">0</span></div>
         </div>
+
         <script>
-            async function up() {
-                const res = await fetch(window.location.origin + window.location.pathname + '?mode=data');
-                const d = await res.json();
-                document.getElementById('r').innerText = d.runs;
-                document.getElementById('ov').innerText = "(" + Math.floor(d.balls/6) + "." + (d.balls%6) + ")";
-                if(d.target > 0) { document.getElementById('t_box').style.display='block'; document.getElementById('t').innerText=d.target; }
+            async function fetchData() {
+                try {
+                    // Fetch from the same URL but with mode=data
+                    const url = window.location.origin + window.location.pathname + '?mode=data';
+                    const response = await fetch(url);
+                    const d = await response.json();
+                    
+                    document.getElementById('r_val').innerText = d.runs;
+                    document.getElementById('ov_val').innerText = "(" + Math.floor(d.balls/6) + "." + (d.balls%6) + ")";
+                    
+                    if(d.target > 0) {
+                        document.getElementById('tgt_tag').style.display = 'block';
+                        document.getElementById('t_val').innerText = d.target;
+                    }
+                } catch (e) { console.error(e); }
             }
-            setInterval(up, 2000); up();
+            // Update every 2 seconds
+            setInterval(fetchData, 2000);
+            fetchData();
         </script>
     """, unsafe_allow_html=True)
 
-# 3. MOBILE SCORER (Exact Image Redesign)
+# 3. MOBILE SCORER (CricHeroes Style Grid)
 else:
-    st.markdown(f"""
+    st.markdown("""
         <style>
-            /* Background Color */
-            .stApp {{ background-color: #FEE49B !important; }}
+            /* Force background color */
+            .stApp { background-color: #FEE49B !important; }
             
-            /* Header Styling */
-            .header-container {{ display: flex; justify-content: space-around; padding: 20px 0; font-family: sans-serif; }}
-            .label {{ color: #4A90E2; font-size: 30px; font-weight: bold; text-shadow: 1px 1px white; }}
-            .value {{ color: black; font-size: 70px; font-weight: 900; display: block; margin-top: -10px; }}
+            /* Remove Streamlit padding */
+            .block-container { padding: 10px !important; }
 
-            /* Fixed 3-Column Grid for Mobile */
-            .grid-container {{
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 10px;
-                padding: 10px;
-            }}
-            .grid-item {{
-                height: 100px; border-radius: 5px; display: flex;
-                align-items: center; justify-content: center;
-                font-size: 35px; font-weight: bold; cursor: pointer; border: none;
-            }}
-            .blue-btn {{ background-color: #A3C1E8; color: black; }}
-            .green-btn {{ background-color: #00B050; color: black; }}
-            .darkblue-btn {{ background-color: #0070C0; color: black; }}
-            .undo-btn {{ background-color: #F8B195; color: black; font-size: 20px; }}
+            /* Grid Layout for Mobile - 3 Columns Always */
+            [data-testid="stHorizontalBlock"] {
+                display: flex !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                gap: 8px !important;
+            }
+            [data-testid="stColumn"] {
+                flex: 1 1 0% !important;
+                min-width: 0 !important;
+            }
 
-            /* Extras Styling */
-            .extra-section {{ background-color: #C65911; color: white; text-align: center; font-size: 25px; font-weight: bold; padding: 8px; margin: 15px 0 5px 0; }}
-            .extra-row {{ display: flex; gap: 5px; padding: 0 5px; }}
-            .extra-item {{ flex: 1; background: #A3C1E8; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 1px solid #777; color: black; }}
+            /* Custom Button Styling */
+            .stButton>button {
+                height: 90px !important;
+                font-size: 32px !important;
+                font-weight: 800 !important;
+                border-radius: 8px !important;
+                border: none !important;
+                color: #2c3e50 !important;
+            }
+            
+            /* Metric Styling */
+            [data-testid="stMetricLabel"] { color: #4A90E2 !important; font-size: 20px !important; font-weight: bold !important; }
+            [data-testid="stMetricValue"] { color: #000 !important; font-size: 55px !important; font-weight: 900 !important; }
+            
+            /* Extras styling */
+            .extra-hdr { background: #C65911; color: white; text-align: center; font-weight: bold; padding: 5px; margin: 10px 0; border-radius: 4px; }
         </style>
     """, unsafe_allow_html=True)
 
     d = get_match()
 
-    # Score Display
-    st.markdown(f"""
-        <div class="header-container">
-            <div style="text-align:center;"><span class="label">SCORE</span><span class="value">{d['runs']}</span></div>
-            <div style="text-align:center;"><span class="label">OVERS</span><span class="value">{d['balls']//6}.{d['balls']%6}</span></div>
-        </div>
-    """, unsafe_allow_html=True)
+    # Metrics
+    m1, m2 = st.columns(2)
+    m1.metric("SCORE", d['runs'])
+    m2.metric("OVERS", f"{d['balls']//6}.{d['balls']%6}")
 
-    # Scoring Grid
-    col1, col2, col3 = st.columns(3)
-    if col1.button("1", use_container_width=True): update_db(1, 1); st.rerun()
-    if col2.button("2", use_container_width=True): update_db(2, 1); st.rerun()
-    if col3.button("3", use_container_width=True): update_db(3, 1); st.rerun()
+    # Row 1: 1, 2, 3
+    c1, c2, c3 = st.columns(3)
+    if c1.button("1", key="b1", use_container_width=True): update_db(1, 1); st.rerun()
+    if c2.button("2", key="b2", use_container_width=True): update_db(2, 1); st.rerun()
+    if c3.button("3", key="b3", use_container_width=True): update_db(3, 1); st.rerun()
 
-    col4, col5, col6 = st.columns(3)
-    with col4: st.markdown('<div class="green-btn">', unsafe_allow_html=True)
-    if col4.button("4", use_container_width=True): update_db(4, 1); st.rerun()
-    with col5: st.markdown('<div class="darkblue-btn">', unsafe_allow_html=True)
-    if col5.button("6", use_container_width=True): update_db(6, 1); st.rerun()
-    with col6: st.markdown('<div class="undo-btn">', unsafe_allow_html=True)
-    if col6.button("UNDO", use_container_width=True): 
-        update_db(0, 0) # Placeholder for Undo Logic
+    # Row 2: 4, 6, UNDO
+    c4, c5, c6 = st.columns(3)
+    with c4: st.markdown('<style>div[row-id="b4"] button {background:#00B050 !important;}</style>', unsafe_allow_html=True)
+    if c4.button("4", key="b4", use_container_width=True): update_db(4, 1); st.rerun()
+    
+    with c5: st.markdown('<style>div[row-id="b6"] button {background:#0070C0 !important; color:white !important;}</style>', unsafe_allow_html=True)
+    if c5.button("6", key="b6", use_container_width=True): update_db(6, 1); st.rerun()
+    
+    with c6: st.markdown('<style>div[row-id="bund"] button {background:#F8B195 !important; font-size:18px !important;}</style>', unsafe_allow_html=True)
+    if c6.button("UNDO", key="bund", use_container_width=True):
+        update_db(-1, -1) # Simple logic: subtract 1 run and 1 ball
         st.rerun()
 
-    # Wides Bar
-    st.markdown('<div class="extra-section">Wides</div>', unsafe_allow_html=True)
-    w_cols = st.columns(5)
+    # Wides Row
+    st.markdown('<div class="extra-hdr">WIDES</div>', unsafe_allow_html=True)
+    wcols = st.columns(5)
     for i in range(5):
-        if w_cols[i].button(f"W+{i}", use_container_width=True):
+        if wcols[i].button(f"W+{i}", key=f"w{i}", use_container_width=True):
             update_db(1 + i, 0); st.rerun()
 
-    # No Ball Bar
-    st.markdown('<div class="extra-section">No Ball</div>', unsafe_allow_html=True)
-    n_cols = st.columns(7)
+    # No Balls Row
+    st.markdown('<div class="extra-hdr">NO BALL</div>', unsafe_allow_html=True)
+    ncols = st.columns(7)
     for i in range(7):
-        if n_cols[i].button(f"N+{i}", use_container_width=True):
+        if ncols[i].button(f"N+{i}", key=f"n{i}", use_container_width=True):
             update_db(1 + i, 0); st.rerun()
 
-    # Setup Footer
-    with st.expander("⚙️ Setup"):
-        st.write(f"Overlay Link: `https://score-easy.streamlit.app/?mode=overlay`")
+    # Hidden settings for match setup
+    with st.expander("⚙️ Settings"):
         if st.button("RESET MATCH"):
-            supabase.table("match_data").update({"runs": 0, "balls": 0, "target": 0}).eq("id", 1).execute()
+            supabase.table("match_data").update({"runs":0, "balls":0, "target":0}).eq("id", 1).execute()
             st.rerun()
+        st.write(f"Overlay Link: `https://score-easy.streamlit.app/?mode=overlay`")
