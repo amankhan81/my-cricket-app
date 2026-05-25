@@ -1,17 +1,18 @@
 import streamlit as st
 from supabase import create_client
+import json
 
 # --- DB CONNECTION ---
 URL = "https://wkwxtnzdisclwbrygpez.supabase.co"
 KEY = "sb_publishable_hQXQy84zDzyyT6Q2cvVIQA_6qqwY_uA"
 supabase = create_client(URL, KEY)
 
-# --- APP CONFIG ---
-st.set_page_config(page_title="Cricket Pro Scorer", layout="centered")
-
 # --- DATA HELPERS ---
 def get_match():
-    return supabase.table("match_data").select("*").eq("id", 1).single().execute().data
+    try:
+        return supabase.table("match_data").select("*").eq("id", 1).single().execute().data
+    except:
+        return {"runs": 0, "balls": 0, "match_overs": 8, "target": 0, "history": "[]"}
 
 def update_db(updates):
     supabase.table("match_data").update(updates).eq("id", 1).execute()
@@ -19,183 +20,127 @@ def update_db(updates):
 # --- APP LOGIC ---
 params = st.query_params
 
-# 1. OVERLAY VIEW (Ticker with forced transparency and Dark Green theme)
-if params.get("mode") == "overlay":
+# 1. THE DATA API (For No-Blink Overlay)
+if params.get("mode") == "data":
+    st.write(json.dumps(get_match()))
+    st.stop()
+
+# 2. THE OVERLAY (Ticker - Top Left)
+elif params.get("mode") == "overlay":
     st.markdown("""
         <style>
-            /* EXTREME TRANSPARENCY OVERRIDE */
-            html, body, [data-testid="stAppViewContainer"], 
-            [data-testid="stHeader"], .main, .block-container,
-            [data-testid="stVerticalBlock"], [data-testid="stApp"] {
-                background: transparent !important;
-                background-color: transparent !important;
-                background-image: none !important;
-            }
-            
-            /* Hide Streamlit elements */
-            header, footer, #MainMenu, [data-testid="stDecoration"] {
-                display: none !important;
-                visibility: hidden !important;
-            }
-            
-            /* Remove padding and stop blinking/animations */
+            html, body, [data-testid="stAppViewContainer"], .main { background: transparent !important; }
+            header, footer, #MainMenu {display: none !important;}
             .block-container {padding: 0 !important; margin: 0 !important;}
-            * { transition: none !important; animation: none !important; }
-
-            .ticker-container {
-                position: fixed;
-                top: 10px;
-                left: 10px;
-                font-family: 'Arial Black', sans-serif;
-                z-index: 999999;
-            }
-
-            .main-box {
-                background: #1B5E20; /* DARK GREEN */
-                padding: 12px 20px;
-                border-radius: 8px;
-                display: flex;
-                flex-direction: column;
-                min-width: 220px;
-                box-shadow: 4px 4px 15px rgba(0,0,0,0.5);
-                border: 1px solid rgba(255,255,255,0.1);
-            }
-
-            .innings-label {
-                color: #FFFFFF !important; /* WHITE TEXT */
-                font-size: 11px;
-                font-weight: bold;
-                text-transform: uppercase;
-                letter-spacing: 2px;
-                margin-bottom: 2px;
-                opacity: 0.9;
-            }
-
-            .score-row {
-                display: flex;
-                align-items: baseline;
-                gap: 10px;
-                color: #FFFFFF !important; /* WHITE TEXT */
-            }
-
-            .runs {
-                font-size: 38px;
-                font-weight: 900;
-                line-height: 1;
-                color: #FFFFFF !important;
-            }
-
-            .overs {
-                font-size: 30px;
-                font-weight: 600;
-                color: #FFFFFF !important;
-                opacity: 0.8;
-            }
-
-            .target-box {
-                background: #000000;
-                color: #FFFFFF !important;
-                padding: 5px 12px;
-                border-radius: 0 0 8px 8px;
-                font-size: 25px;
-                font-weight: bold;
-                width: fit-content;
-                margin-left: 15px;
-                border: 1px solid rgba(255,255,255,0.1);
-                border-top: none;
-            }
+            .ticker-container { position: fixed; top: 10px; left: 10px; font-family: 'Arial Black', sans-serif; }
+            .main-box { background: #1B5E20; padding: 12px 20px; border-radius: 8px; display: flex; flex-direction: column; min-width: 220px; box-shadow: 4px 4px 15px rgba(0,0,0,0.5); color: white !important; }
+            .score-row { display: flex; align-items: baseline; gap: 10px; color: white !important; }
+            .runs { font-size: 38px; font-weight: 900; line-height: 1; }
+            .overs { font-size: 18px; font-weight: 600; opacity: 0.8; }
+            .target-box { background: #000; color: white; padding: 5px 12px; border-radius: 0 0 8px 8px; font-size: 14px; font-weight: bold; width: fit-content; margin-left: 15px; margin-top: -1px; }
         </style>
-    """, unsafe_allow_html=True)
-    
-    d = get_match()
-    ov = f"{d['balls']//6}.{d['balls']%6}"
-    label = "1ST INNINGS" if d['target'] == 0 else "2ND INNINGS"
-    
-    st.markdown(f"""
         <div class="ticker-container">
             <div class="main-box">
-                <div class="innings-label">{label}</div>
+                <div id="label" style="font-size:11px; letter-spacing:2px;">1ST INNINGS</div>
                 <div class="score-row">
-                    <span class="runs">Score {d['runs']}</span>
-                    <span class="overs">Overs {ov} ({d['match_overs']})</span>
+                    <span id="runs" class="runs">Score 0</span>
+                    <span id="overs" class="overs">Overs 0.0 (0)</span>
                 </div>
             </div>
-            {f'<div class="target-box">Target {d["target"]}</div>' if d['target'] > 0 else ''}
+            <div id="tgt_container" class="target-box" style="display:none;">Target <span id="target">0</span></div>
         </div>
+        <script>
+            async function updateScore() {
+                try {
+                    const res = await fetch(window.location.origin + window.location.pathname + '?mode=data');
+                    const d = await res.json();
+                    const ov = Math.floor(d.balls / 6) + "." + (d.balls % 6);
+                    document.getElementById('runs').innerText = "Score " + d.runs;
+                    document.getElementById('overs').innerText = "Overs " + ov + " (" + d.match_overs + ")";
+                    document.getElementById('label').innerText = d.target === 0 ? "1ST INNINGS" : "2ND INNINGS";
+                    if(d.target > 0) { document.getElementById('tgt_container').style.display='block'; document.getElementById('target').innerText=d.target; }
+                } catch (e) {}
+            }
+            setInterval(updateScore, 2000); updateScore();
+        </script>
     """, unsafe_allow_html=True)
-    
-    # Slower refresh to stop the blinking (checks every 3 seconds)
-    st.empty()
-    import time
-    time.sleep(3)
-    st.rerun()
 
-# 2. MAIN APP (Scorer Phone Interface)
+# 3. MAIN APP (The Redesigned Scorer)
 else:
     st.markdown("""
         <style>
-        .stButton>button { height: 80px; font-size: 22px !important; font-weight: bold; border-radius: 10px; }
-        div[data-testid="column"]:nth-of-type(2) .stButton>button, 
-        div[data-testid="column"]:nth-of-type(3) .stButton>button { border-bottom: 5px solid #1B5E20; }
+        [data-testid="stAppViewContainer"] { background-color: #FEE49B !important; }
+        .stMetric { text-align: center; }
+        [data-testid="stMetricLabel"] { font-size: 30px !important; color: #4A90E2 !important; font-weight: bold !important; text-shadow: 1px 1px 2px #fff; }
+        [data-testid="stMetricValue"] { font-size: 60px !important; color: #000 !important; font-weight: 900 !important; }
+        
+        /* Grid Buttons */
+        .stButton>button { height: 100px; font-size: 35px !important; font-weight: bold; border-radius: 5px; border: none; }
+        .run-btn button { background-color: #A3C1E8 !important; color: #000 !important; }
+        .four-btn button { background-color: #00B050 !important; color: #000 !important; }
+        .six-btn button { background-color: #0070C0 !important; color: #000 !important; }
+        .undo-btn button { background-color: #F8B195 !important; color: #000 !important; }
+        
+        /* Extras Bar */
+        .extra-header { background-color: #C65911; color: white; text-align: center; padding: 10px; font-size: 30px; font-weight: bold; margin-top: 10px; }
+        .extra-btn button { height: 60px !important; font-size: 20px !important; background-color: #A3C1E8 !important; border: 1px solid #777 !important; color: #000 !important; }
         </style>
     """, unsafe_allow_html=True)
 
-    if "started" not in st.session_state:
-        st.session_state.started = False
-
     d = get_match()
-    max_balls = d['match_overs'] * 6
 
-    # INNINGS COMPLETE PROMPT
-    if d['balls'] >= max_balls and d['target'] == 0:
-        st.success(f"1st Innings Complete! Total Score: {d['runs']}")
-        if st.button("START 2nd INNINGS", use_container_width=True, type="primary"):
-            update_db({"target": d['runs'] + 1, "runs": 0, "balls": 0})
+    # Metric Row
+    m1, m2 = st.columns(2)
+    m1.metric("SCORE", d['runs'])
+    m2.metric("OVERS", f"{d['balls']//6}.{d['balls']%6}")
+
+    # Main Grid
+    row1 = st.columns(3)
+    row2 = st.columns(3)
+
+    with row1[0]: st.markdown('<div class="run-btn">', unsafe_allow_html=True)
+    if row1[0].button("1", key="r1", use_container_width=True): update_db({"runs": d['runs']+1, "balls": d['balls']+1}); st.rerun()
+    with row1[1]: st.markdown('<div class="run-btn">', unsafe_allow_html=True)
+    if row1[1].button("2", key="r2", use_container_width=True): update_db({"runs": d['runs']+2, "balls": d['balls']+1}); st.rerun()
+    with row1[2]: st.markdown('<div class="run-btn">', unsafe_allow_html=True)
+    if row1[2].button("3", key="r3", use_container_width=True): update_db({"runs": d['runs']+3, "balls": d['balls']+1}); st.rerun()
+
+    with row2[0]: st.markdown('<div class="four-btn">', unsafe_allow_html=True)
+    if row2[0].button("4", key="r4", use_container_width=True): update_db({"runs": d['runs']+4, "balls": d['balls']+1}); st.rerun()
+    with row2[1]: st.markdown('<div class="six-btn">', unsafe_allow_html=True)
+    if row2[1].button("6", key="r6", use_container_width=True): update_db({"runs": d['runs']+6, "balls": d['balls']+1}); st.rerun()
+    
+    # UNDO Logic (Simple reset for this version)
+    with row2[2]: st.markdown('<div class="undo-btn">', unsafe_allow_html=True)
+    if row2[2].button("UNDO", key="undo", use_container_width=True):
+        st.toast("Settings Open")
+        if st.checkbox("Confirm Reset Match?"):
+            update_db({"runs": 0, "balls": 0, "target": 0})
             st.rerun()
 
-    # START SCREEN
-    elif not st.session_state.started:
-        st.title("🏏 Match Setup")
-        overs = st.number_input("Match Overs", min_value=1, value=int(d['match_overs']))
-        target = st.number_input("Target (0 if 1st Innings)", min_value=0, value=int(d['target']))
-        
-        if st.button("START MATCH", use_container_width=True, type="primary"):
-            update_db({"match_overs": overs, "target": target, "runs": 0, "balls": 0})
-            st.session_state.started = True
+    # Wides Bar
+    st.markdown('<div class="extra-header">Wides</div>', unsafe_allow_html=True)
+    w_cols = st.columns(5)
+    for i in range(5):
+        with w_cols[i]: st.markdown('<div class="extra-btn">', unsafe_allow_html=True)
+        if w_cols[i].button(f"W+{i}", key=f"w{i}", use_container_width=True):
+            update_db({"runs": d['runs'] + 1 + i})
             st.rerun()
 
-    # SCORING SCREEN
-    else:
-        m1, m2 = st.columns(2)
-        ov_disp = f"{d['balls']//6}.{d['balls']%6}"
-        m1.metric("RUNS", d['runs'])
-        m2.metric("OVERS", f"{ov_disp} / {d['match_overs']}")
-
-        c1, c2, c3 = st.columns(3)
-        if c1.button("0", use_container_width=True): update_db({"runs": d['runs'], "balls": d['balls']+1}); st.rerun()
-        if c2.button("1", use_container_width=True): update_db({"runs": d['runs']+1, "balls": d['balls']+1}); st.rerun()
-        if c3.button("2", use_container_width=True): update_db({"runs": d['runs']+2, "balls": d['balls']+1}); st.rerun()
-
-        c4, c5, c6 = st.columns(3)
-        if c4.button("3", use_container_width=True): update_db({"runs": d['runs']+3, "balls": d['balls']+1}); st.rerun()
-        if c5.button("4\nBNDRY", use_container_width=True): update_db({"runs": d['runs']+4, "balls": d['balls']+1}); st.rerun()
-        if c6.button("6\nBNDRY", use_container_width=True): update_db({"runs": d['runs']+6, "balls": d['balls']+1}); st.rerun()
-
-        c7, c8, c9 = st.columns(3)
-        with c7:
-            with st.popover("WD", use_container_width=True):
-                ex_wd = st.selectbox("Plus Runs", [0,1,2,3,4,6], key="wd")
-                if st.button("OK", key="ok_wd", use_container_width=True):
-                    update_db({"runs": d['runs'] + 1 + ex_wd})
-                    st.rerun()
-        with c8:
-            with st.popover("NB", use_container_width=True):
-                ex_nb = st.selectbox("Plus Runs", [0,1,2,3,4,6], key="nb")
-                if st.button("OK", key="ok_nb", use_container_width=True):
-                    update_db({"runs": d['runs'] + 1 + ex_nb})
-                    st.rerun()
-        
-        if c9.button("⚙️", use_container_width=True):
-            st.session_state.started = False
+    # No Ball Bar
+    st.markdown('<div class="extra-header">No Ball</div>', unsafe_allow_html=True)
+    n_cols = st.columns(7)
+    for i in range(7):
+        with n_cols[i]: st.markdown('<div class="extra-btn">', unsafe_allow_html=True)
+        if n_cols[i].button(f"N+{i}", key=f"n{i}", use_container_width=True):
+            update_db({"runs": d['runs'] + 1 + i})
             st.rerun()
 
+    # Settings Footer
+    if st.button("⚙️ MATCH SETUP / OVERLAY LINK", use_container_width=True):
+        st.write(f"Overlay Link: `{st.get_option('browser.gatherUsageStats') or 'https://score-easy.streamlit.app/'}?mode=overlay`")
+        new_ov = st.number_input("Change Overs", value=d['match_overs'])
+        new_tg = st.number_input("Change Target", value=d['target'])
+        if st.button("Save Settings"):
+            update_db({"match_overs": new_ov, "target": new_tg})
+            st.rerun()
