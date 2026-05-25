@@ -55,7 +55,7 @@ else:
             .lbl { color: black; font-size: 18px; font-weight: bold; }
             .val { color: black; font-size: 50px; font-weight: 900; display: block; margin-top: -5px; }
 
-            /* FORCED COMPACT GRID FOR 1:1 BUTTONS */
+            /* FORCED COMPACT GRID FOR 3:3 BUTTONS */
             [data-testid="stHorizontalBlock"] {
                 display: flex !important;
                 flex-direction: row !important;
