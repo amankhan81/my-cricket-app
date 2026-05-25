@@ -86,7 +86,7 @@ if params.get("mode") == "overlay":
             }
 
             .overs {
-                font-size: 18px;
+                font-size: 30px;
                 font-weight: 600;
                 color: #FFFFFF !important;
                 opacity: 0.8;
