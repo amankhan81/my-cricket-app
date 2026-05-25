@@ -11,8 +11,6 @@ supabase = create_client(URL, KEY)
 def get_match():
     res = supabase.table("match_data").select("*").eq("id", 1).single().execute().data
     if not res.get("history"): res["history"] = "[]"
-    if not res.get("innings"): res["innings"] = 1
-    if not res.get("innings1_runs"): res["innings1_runs"] = 0
     return res
 
 def update_score(runs_inc, balls_inc, is_undo=False):
@@ -38,7 +36,7 @@ def update_score(runs_inc, balls_inc, is_undo=False):
 params = st.query_params
 
 if params.get("mode") == "overlay":
-    st.markdown("<style>html,body,[data-testid='stAppViewContainer'],.main{background:transparent !important;}header,footer,#MainMenu{display:none !important;}.ticker{position:fixed;top:15px;left:15px;background:rgba(0,0,0,0.9);padding:10px 15px;display:flex;align-items:baseline;gap:10px;color:white;border-left:4px solid #f0c040;border-radius:4px;font-family:sans-serif;}.r-txt{font-size:38px;font-weight:900;}</style>", unsafe_allow_html=True)
+    st.markdown("<style>html,body,[data-testid='stAppViewContainer'],.main{background:transparent !important;}header,footer,#MainMenu{display:none !important;}.ticker{position:fixed;top:15px;left:15px;background:rgba(0,0,0,0.9);padding:10px 15px;display:flex;align-items:baseline;gap:10px;color:white;border-left:4px solid #8bc34a;border-radius:4px;font-family:sans-serif;}.r-txt{font-size:38px;font-weight:900;}</style>", unsafe_allow_html=True)
     d = get_match()
     st.markdown(f'<div class="ticker"><span class="r-txt">{d["runs"]}</span><span style="font-size:18px;opacity:0.8;">({d["balls"]//6}.{d["balls"]%6}/{d["match_overs"]})</span></div>', unsafe_allow_html=True)
     import time; time.sleep(2); st.rerun()
@@ -46,444 +44,187 @@ if params.get("mode") == "overlay":
 else:
     st.markdown("""
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Roboto+Condensed:wght@400;700&display=swap');
-
+            /* Hide Streamlit chrome */
             header, footer, #MainMenu { display: none !important; }
-
-            .stApp {
-                background: linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%) !important;
-                min-height: 100vh;
-            }
+            .stApp { background-color: #CCCCCC !important; }
             .block-container {
-                padding: 16px 12px 24px 12px !important;
-                max-width: 480px !important;
-                margin: 0 auto !important;
-            }
-
-            /* ── INNINGS BADGE ── */
-            .innings-badge {
-                text-align: center;
-                margin-bottom: 6px;
-            }
-            .innings-badge span {
-                background: rgba(240,192,64,0.18);
-                color: #f0c040;
-                font-family: 'Roboto Condensed', sans-serif;
-                font-size: 13px;
-                font-weight: 700;
-                letter-spacing: 3px;
-                text-transform: uppercase;
-                padding: 4px 18px;
-                border-radius: 20px;
-                border: 1px solid rgba(240,192,64,0.35);
+                padding: 10px 10px 10px 10px !important;
+                max-width: 100% !important;
             }
 
             /* ── SCORE HEADER ── */
             .score-header {
                 display: flex;
                 justify-content: space-around;
-                align-items: center;
-                background: rgba(255,255,255,0.05);
-                border: 1px solid rgba(255,255,255,0.1);
-                border-radius: 16px;
-                padding: 14px 10px 10px;
-                margin-bottom: 14px;
-                backdrop-filter: blur(10px);
-            }
-            .score-divider {
-                width: 1px;
-                height: 60px;
-                background: rgba(255,255,255,0.15);
-            }
-            .score-col { text-align: center; }
-            .lbl {
-                color: rgba(255,255,255,0.5);
-                font-family: 'Roboto Condensed', sans-serif;
-                font-size: 13px;
-                font-weight: 700;
-                letter-spacing: 3px;
-                text-transform: uppercase;
-                display: block;
-                margin-bottom: 2px;
-            }
-            .val {
-                color: #ffffff;
-                font-family: 'Oswald', sans-serif;
-                font-size: 72px;
-                font-weight: 700;
-                display: block;
-                line-height: 1;
-            }
-
-            /* ── TARGET BAR (2nd innings) ── */
-            .target-bar {
-                background: rgba(240,192,64,0.12);
-                border: 1px solid rgba(240,192,64,0.3);
-                border-radius: 10px;
-                padding: 8px 16px;
+                align-items: flex-start;
                 text-align: center;
                 margin-bottom: 12px;
-                font-family: 'Roboto Condensed', sans-serif;
-                color: #f0c040;
-                font-size: 15px;
-                font-weight: 700;
-                letter-spacing: 1px;
             }
+            .lbl  { color: black; font-size: 28px; font-weight: bold; font-family: sans-serif; display: block; }
+            .val  { color: black; font-size: 86px; font-weight: 900; font-family: sans-serif; display: block; line-height: 1; }
 
-            /* ── REMOVE STREAMLIT GAPS ── */
+            /* ── REMOVE STREAMLIT COLUMN GAPS ── */
             [data-testid="stHorizontalBlock"] {
-                gap: 8px !important;
+                gap: 6px !important;
                 flex-wrap: nowrap !important;
             }
-            [data-testid="stColumn"] { padding: 0 !important; min-width: 0 !important; }
+            [data-testid="stColumn"] {
+                padding: 0 !important;
+                min-width: 0 !important;
+            }
 
-            /* ── MAIN SCORING BUTTONS ── */
+            /* ── MAIN SCORING BUTTONS (1-6, UNDO) ── */
             .main-btn button {
                 width: 100% !important;
-                height: 100px !important;
-                background: rgba(255,255,255,0.07) !important;
+                aspect-ratio: 1 / 1 !important;
+                min-height: 110px !important;
+                background-color: black !important;
                 color: white !important;
-                font-family: 'Oswald', sans-serif !important;
-                font-size: 42px !important;
-                font-weight: 700 !important;
-                border: 1px solid rgba(255,255,255,0.12) !important;
-                border-radius: 12px !important;
+                font-size: 40px !important;
+                font-weight: 900 !important;
+                border: none !important;
+                border-radius: 0px !important;
                 padding: 0 !important;
-                transition: background 0.15s, transform 0.1s !important;
             }
-            .main-btn button:hover {
-                background: rgba(255,255,255,0.14) !important;
-                transform: scale(0.97) !important;
-            }
-            .main-btn button:active { transform: scale(0.93) !important; }
-
-            /* Highlight 4 and 6 */
-            .btn-four button {
-                background: rgba(52,168,83,0.2) !important;
-                border-color: rgba(52,168,83,0.4) !important;
-                color: #6fcf97 !important;
-            }
-            .btn-six button {
-                background: rgba(240,192,64,0.2) !important;
-                border-color: rgba(240,192,64,0.4) !important;
-                color: #f0c040 !important;
-            }
-            .btn-undo button {
-                background: rgba(235,87,87,0.15) !important;
-                border-color: rgba(235,87,87,0.3) !important;
-                color: #eb5757 !important;
-                font-size: 20px !important;
-                height: 100px !important;
+            .undo-btn button {
+                width: 100% !important;
+                min-height: 110px !important;
+                background-color: black !important;
+                color: white !important;
+                font-size: 22px !important;
+                font-weight: 700 !important;
+                border: none !important;
+                border-radius: 0px !important;
+                padding: 0 !important;
             }
 
             /* ── SECTION HEADERS ── */
             .section-hdr {
-                color: rgba(255,255,255,0.45);
-                font-family: 'Roboto Condensed', sans-serif;
-                font-size: 11px;
-                font-weight: 700;
-                letter-spacing: 3px;
-                text-transform: uppercase;
+                background-color: black;
+                color: white;
                 text-align: center;
-                padding: 14px 0 6px 0;
+                font-size: 30px;
+                font-weight: bold;
+                font-family: sans-serif;
+                padding: 12px 0;
+                margin: 10px 0 6px 0;
+                width: 100%;
             }
 
-            /* ── EXTRA BUTTONS ── */
+            /* ── EXTRA BUTTONS (Wides / No Ball) ── */
             .extra-btn button {
                 width: 100% !important;
-                height: 52px !important;
-                background: rgba(255,255,255,0.06) !important;
-                color: rgba(255,255,255,0.85) !important;
-                font-family: 'Roboto Condensed', sans-serif !important;
-                font-size: 14px !important;
-                font-weight: 700 !important;
-                border: 1px solid rgba(255,255,255,0.1) !important;
-                border-radius: 10px !important;
+                height: 58px !important;
+                background-color: black !important;
+                color: white !important;
+                font-size: 15px !important;
+                font-weight: bold !important;
+                border: none !important;
+                border-radius: 4px !important;
                 padding: 0 !important;
             }
 
             /* ── RESET BUTTON ── */
             .reset-btn button {
                 width: 100% !important;
-                height: 52px !important;
-                background: rgba(235,87,87,0.1) !important;
-                color: rgba(235,87,87,0.8) !important;
-                font-family: 'Roboto Condensed', sans-serif !important;
-                font-size: 16px !important;
-                font-weight: 700 !important;
-                letter-spacing: 2px !important;
-                border: 1px solid rgba(235,87,87,0.25) !important;
-                border-radius: 12px !important;
-                margin-top: 14px !important;
-            }
-
-            /* ── INNINGS OVER SCREEN ── */
-            .innings-over-box {
-                background: rgba(255,255,255,0.05);
-                border: 1px solid rgba(255,255,255,0.1);
-                border-radius: 20px;
-                padding: 32px 20px;
-                text-align: center;
-                margin: 20px 0;
-            }
-            .innings-over-box h2 {
-                font-family: 'Oswald', sans-serif;
-                color: #f0c040;
-                font-size: 32px;
-                margin-bottom: 8px;
-            }
-            .innings-over-box p {
-                font-family: 'Roboto Condensed', sans-serif;
-                color: rgba(255,255,255,0.6);
-                font-size: 16px;
-                margin-bottom: 24px;
-            }
-            .innings-over-box .big-score {
-                font-family: 'Oswald', sans-serif;
-                color: white;
-                font-size: 64px;
-                font-weight: 700;
-                line-height: 1;
-                margin-bottom: 4px;
-            }
-            .innings-over-box .big-score-lbl {
-                font-family: 'Roboto Condensed', sans-serif;
-                color: rgba(255,255,255,0.45);
-                font-size: 12px;
-                letter-spacing: 3px;
-                text-transform: uppercase;
-                margin-bottom: 28px;
-            }
-
-            /* ── START / INNINGS BUTTON ── */
-            .start-btn button {
-                width: 100% !important;
-                height: 60px !important;
-                background: linear-gradient(135deg, #f0c040, #e6a817) !important;
-                color: #1a1a2e !important;
-                font-family: 'Oswald', sans-serif !important;
-                font-size: 22px !important;
-                font-weight: 700 !important;
-                letter-spacing: 2px !important;
+                height: 65px !important;
+                background-color: black !important;
+                color: white !important;
+                font-size: 24px !important;
+                font-weight: bold !important;
                 border: none !important;
-                border-radius: 14px !important;
-            }
-
-            /* ── MATCH RESULT ── */
-            .result-box {
-                background: rgba(240,192,64,0.12);
-                border: 1px solid rgba(240,192,64,0.35);
-                border-radius: 20px;
-                padding: 32px 20px;
-                text-align: center;
-                margin: 20px 0;
-            }
-            .result-box h2 {
-                font-family: 'Oswald', sans-serif;
-                color: #f0c040;
-                font-size: 36px;
-                margin-bottom: 10px;
-            }
-            .result-box p {
-                font-family: 'Roboto Condensed', sans-serif;
-                color: rgba(255,255,255,0.7);
-                font-size: 18px;
-                margin-bottom: 24px;
-            }
-
-            /* Setup screen */
-            .setup-title {
-                font-family: 'Oswald', sans-serif;
-                color: white;
-                font-size: 36px;
-                text-align: center;
-                margin-bottom: 4px;
-            }
-            .setup-sub {
-                font-family: 'Roboto Condensed', sans-serif;
-                color: rgba(255,255,255,0.4);
-                font-size: 13px;
-                letter-spacing: 3px;
-                text-align: center;
-                margin-bottom: 28px;
-            }
-            label, .stNumberInput label {
-                color: rgba(255,255,255,0.6) !important;
-                font-family: 'Roboto Condensed', sans-serif !important;
-                font-size: 13px !important;
-                letter-spacing: 2px !important;
+                border-radius: 0px !important;
+                margin-top: 12px !important;
             }
         </style>
     """, unsafe_allow_html=True)
 
     d = get_match()
-    if "started" not in st.session_state: st.session_state.started = False
+    if "started" not in st.session_state:
+        st.session_state.started = False
 
-    # ── SETUP SCREEN ──
     if not st.session_state.started:
-        st.markdown("<div class='setup-title'>🏏 Cricket</div>", unsafe_allow_html=True)
-        st.markdown("<div class='setup-sub'>MATCH SETUP</div>", unsafe_allow_html=True)
-        ov_in = st.number_input("MATCH OVERS", min_value=1, value=int(d['match_overs']))
-        st.markdown('<div class="start-btn">', unsafe_allow_html=True)
+        st.markdown("<h1 style='color:black; text-align:center;'>Match Setup</h1>", unsafe_allow_html=True)
+        ov_in = st.number_input("Match Overs", min_value=1, value=int(d['match_overs']))
         if st.button("START MATCH", use_container_width=True):
             supabase.table("match_data").update({
-                "match_overs": ov_in, "runs": 0, "balls": 0,
-                "history": "[]", "innings": 1, "innings1_runs": 0
+                "match_overs": ov_in, "runs": 0, "balls": 0, "history": "[]"
             }).eq("id", 1).execute()
             st.session_state.started = True
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
     else:
-        max_balls = int(d['match_overs']) * 6
-        innings = int(d.get('innings', 1))
-        innings1_runs = int(d.get('innings1_runs', 0))
-        current_balls = int(d['balls'])
-        current_runs = int(d['runs'])
-        innings_over = current_balls >= max_balls
-
-        # ── INNINGS 1 COMPLETE → START 2ND INNINGS ──
-        if innings == 1 and innings_over:
-            st.markdown(f"""
-                <div class="innings-over-box">
-                    <h2>Innings Over</h2>
-                    <div class="big-score">{current_runs}</div>
-                    <div class="big-score-lbl">1st Innings Score</div>
-                    <p>Ready to chase? Start the 2nd innings.</p>
+        # ── 1. SCORE DISPLAY ──
+        st.markdown(f"""
+            <div class="score-header">
+                <div>
+                    <span class="lbl">SCORE</span>
+                    <span class="val">{d['runs']}</span>
                 </div>
-            """, unsafe_allow_html=True)
-            st.markdown('<div class="start-btn">', unsafe_allow_html=True)
-            if st.button("START 2ND INNINGS", use_container_width=True):
-                supabase.table("match_data").update({
-                    "innings": 2,
-                    "innings1_runs": current_runs,
-                    "runs": 0,
-                    "balls": 0,
-                    "history": "[]"
-                }).eq("id", 1).execute()
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-            st.markdown('<div class="reset-btn">', unsafe_allow_html=True)
-            if st.button("RESET MATCH", key="reset_mid", use_container_width=True):
-                st.session_state.started = False
-                supabase.table("match_data").update({
-                    "runs": 0, "balls": 0, "history": "[]", "innings": 1, "innings1_runs": 0
-                }).eq("id", 1).execute()
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        # ── INNINGS 2 COMPLETE → RESULT ──
-        elif innings == 2 and innings_over:
-            if current_runs > innings1_runs:
-                result = f"Team 2 wins by {current_runs - innings1_runs} runs! 🎉"
-            elif current_runs < innings1_runs:
-                result = f"Team 1 wins by {innings1_runs - current_runs} runs! 🎉"
-            else:
-                result = "It's a tie! 🤝"
-            st.markdown(f"""
-                <div class="result-box">
-                    <h2>Match Over</h2>
-                    <p>{result}</p>
-                    <div style="font-family:'Roboto Condensed',sans-serif;color:rgba(255,255,255,0.5);font-size:13px;letter-spacing:2px;">
-                        TEAM 1: {innings1_runs} &nbsp;|&nbsp; TEAM 2: {current_runs}
-                    </div>
+                <div>
+                    <span class="lbl">OVERS</span>
+                    <span class="val">{d['balls']//6}.{d['balls']%6}</span>
                 </div>
-            """, unsafe_allow_html=True)
-            st.markdown('<div class="start-btn">', unsafe_allow_html=True)
-            if st.button("NEW MATCH", use_container_width=True):
-                st.session_state.started = False
-                supabase.table("match_data").update({
-                    "runs": 0, "balls": 0, "history": "[]", "innings": 1, "innings1_runs": 0
-                }).eq("id", 1).execute()
-                st.rerun()
+            </div>
+        """, unsafe_allow_html=True)
+
+        # ── 2. ROW 1: 1, 2, 3 ──
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown('<div class="main-btn">', unsafe_allow_html=True)
+            if st.button("1", key="b1", use_container_width=True): update_score(1, 1); st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with c2:
+            st.markdown('<div class="main-btn">', unsafe_allow_html=True)
+            if st.button("2", key="b2", use_container_width=True): update_score(2, 1); st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with c3:
+            st.markdown('<div class="main-btn">', unsafe_allow_html=True)
+            if st.button("3", key="b3", use_container_width=True): update_score(3, 1); st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # ── ACTIVE SCORING ──
-        else:
-            # Innings badge
-            st.markdown(f'<div class="innings-badge"><span>{"1st" if innings == 1 else "2nd"} Innings</span></div>', unsafe_allow_html=True)
-
-            # Score display
-            st.markdown(f"""
-                <div class="score-header">
-                    <div class="score-col">
-                        <span class="lbl">Score</span>
-                        <span class="val">{current_runs}</span>
-                    </div>
-                    <div class="score-divider"></div>
-                    <div class="score-col">
-                        <span class="lbl">Overs</span>
-                        <span class="val">{current_balls//6}.{current_balls%6}</span>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-
-            # Target bar for 2nd innings
-            if innings == 2:
-                needed = innings1_runs - current_runs + 1
-                balls_left = max_balls - current_balls
-                overs_left = f"{balls_left//6}.{balls_left%6}"
-                if needed > 0:
-                    st.markdown(f'<div class="target-bar">🎯 Need {needed} runs in {overs_left} overs</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown(f'<div class="target-bar">✅ Target achieved!</div>', unsafe_allow_html=True)
-
-            # Row 1: 1, 2, 3
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                st.markdown('<div class="main-btn">', unsafe_allow_html=True)
-                if st.button("1", key="b1", use_container_width=True): update_score(1, 1); st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-            with c2:
-                st.markdown('<div class="main-btn">', unsafe_allow_html=True)
-                if st.button("2", key="b2", use_container_width=True): update_score(2, 1); st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-            with c3:
-                st.markdown('<div class="main-btn">', unsafe_allow_html=True)
-                if st.button("3", key="b3", use_container_width=True): update_score(3, 1); st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            # Row 2: 4, 6, UNDO
-            c4, c5, c6 = st.columns(3)
-            with c4:
-                st.markdown('<div class="main-btn btn-four">', unsafe_allow_html=True)
-                if st.button("4", key="b4", use_container_width=True): update_score(4, 1); st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-            with c5:
-                st.markdown('<div class="main-btn btn-six">', unsafe_allow_html=True)
-                if st.button("6", key="b6", use_container_width=True): update_score(6, 1); st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-            with c6:
-                st.markdown('<div class="btn-undo">', unsafe_allow_html=True)
-                if st.button("UNDO", key="bun", use_container_width=True): update_score(0, 0, is_undo=True); st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            # Wides
-            st.markdown('<div class="section-hdr">Wides</div>', unsafe_allow_html=True)
-            wcols = st.columns(5)
-            for i in range(5):
-                with wcols[i]:
-                    st.markdown('<div class="extra-btn">', unsafe_allow_html=True)
-                    if st.button(f"W+{i}", key=f"w{i}", use_container_width=True):
-                        update_score(1 + i, 0); st.rerun()
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-            # No Ball
-            st.markdown('<div class="section-hdr">No Ball</div>', unsafe_allow_html=True)
-            ncols = st.columns(7)
-            for i in range(7):
-                with ncols[i]:
-                    st.markdown('<div class="extra-btn">', unsafe_allow_html=True)
-                    if st.button(f"N+{i}", key=f"n{i}", use_container_width=True):
-                        update_score(1 + i, 0); st.rerun()
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-            # Reset
-            st.markdown('<div class="reset-btn">', unsafe_allow_html=True)
-            if st.button("RESET MATCH", key="reset", use_container_width=True):
-                st.session_state.started = False
-                supabase.table("match_data").update({
-                    "runs": 0, "balls": 0, "history": "[]", "innings": 1, "innings1_runs": 0
-                }).eq("id", 1).execute()
-                st.rerun()
+        # ── 3. ROW 2: 4, 6, UNDO ──
+        c4, c5, c6 = st.columns(3)
+        with c4:
+            st.markdown('<div class="main-btn">', unsafe_allow_html=True)
+            if st.button("4", key="b4", use_container_width=True): update_score(4, 1); st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
+        with c5:
+            st.markdown('<div class="main-btn">', unsafe_allow_html=True)
+            if st.button("6", key="b6", use_container_width=True): update_score(6, 1); st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with c6:
+            st.markdown('<div class="undo-btn">', unsafe_allow_html=True)
+            if st.button("UNDO", key="bun", use_container_width=True): update_score(0, 0, is_undo=True); st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        # ── 4. WIDES ──
+        st.markdown('<div class="section-hdr">Wides</div>', unsafe_allow_html=True)
+        wcols = st.columns(5)
+        for i in range(5):
+            with wcols[i]:
+                st.markdown('<div class="extra-btn">', unsafe_allow_html=True)
+                if st.button(f"W+{i}", key=f"w{i}", use_container_width=True):
+                    update_score(1 + i, 0); st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+        # ── 5. NO BALL ──
+        st.markdown('<div class="section-hdr">No Ball</div>', unsafe_allow_html=True)
+        ncols = st.columns(7)
+        for i in range(7):
+            with ncols[i]:
+                st.markdown('<div class="extra-btn">', unsafe_allow_html=True)
+                if st.button(f"N+{i}", key=f"n{i}", use_container_width=True):
+                    update_score(1 + i, 0); st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+        # ── 6. RESET ──
+        st.markdown('<div class="reset-btn">', unsafe_allow_html=True)
+        if st.button("Reset Match", key="reset", use_container_width=True):
+            st.session_state.started = False
+            supabase.table("match_data").update({
+                "runs": 0, "balls": 0, "history": "[]"
+            }).eq("id", 1).execute()
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
