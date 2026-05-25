@@ -55,12 +55,12 @@ else:
             .lbl { color: black; font-size: 22px; font-weight: bold; }
             .val { color: black; font-size: 55px; font-weight: 900; display: block; margin-top: -5px; }
 
-            /* FORCED GRID FOR 1:1 BUTTONS */
+            /* FORCED GRID FOR 2:2 BUTTONS */
             [data-testid="stHorizontalBlock"] {
                 display: flex !important;
                 flex-direction: row !important;
                 flex-wrap: nowrap !important;
-                gap: 10px !important;
+                gap: 5px !important;
                 align-items: stretch !important;
             }
             [data-testid="stColumn"] {
