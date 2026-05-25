@@ -97,7 +97,7 @@ if params.get("mode") == "overlay":
                 color: #FFFFFF !important;
                 padding: 5px 12px;
                 border-radius: 0 0 8px 8px;
-                font-size: 14px;
+                font-size: 25px;
                 font-weight: bold;
                 width: fit-content;
                 margin-left: 15px;
