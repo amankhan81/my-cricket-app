@@ -10,8 +10,8 @@ supabase = create_client(URL, KEY)
 # --- DATA HELPERS ---
 def get_match():
     res = supabase.table("match_data").select("*").eq("id", 1).single().execute().data
-    if not res.get("history"):      res["history"]       = "[]"
-    if not res.get("innings"):      res["innings"]       = 1
+    if not res.get("history"):       res["history"]       = "[]"
+    if not res.get("innings"):       res["innings"]       = 1
     if not res.get("innings1_runs"): res["innings1_runs"] = 0
     return res
 
@@ -37,12 +37,139 @@ def update_score(runs_inc, balls_inc, is_undo=False):
 # --- APP LOGIC ---
 params = st.query_params
 
+# ════════════════════════════════════════════════════════
+#  OVERLAY MODE  — redesigned score ticker
+# ════════════════════════════════════════════════════════
 if params.get("mode") == "overlay":
-    st.markdown("<style>html,body,[data-testid='stAppViewContainer'],.main{background:transparent !important;}header,footer,#MainMenu{display:none !important;}.ticker{position:fixed;top:15px;left:15px;background:rgba(0,0,0,0.9);padding:10px 15px;display:flex;align-items:baseline;gap:10px;color:white;border-left:4px solid #f0c040;border-radius:4px;font-family:sans-serif;}.r-txt{font-size:38px;font-weight:900;}</style>", unsafe_allow_html=True)
+    st.markdown("""
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Roboto+Condensed:wght@700&display=swap');
+            html, body, [data-testid='stAppViewContainer'], .main {
+                background: transparent !important;
+            }
+            header, footer, #MainMenu { display: none !important; }
+
+            .ticker {
+                position: fixed;
+                top: 14px;
+                left: 14px;
+                display: flex;
+                align-items: stretch;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 4px 24px rgba(0,0,0,0.6), 0 1px 4px rgba(0,0,0,0.4);
+                font-family: 'Oswald', sans-serif;
+                min-width: 160px;
+            }
+
+            /* Left gold accent strip */
+            .ticker-accent {
+                width: 5px;
+                background: linear-gradient(180deg, #f0c040, #c8960a);
+                flex-shrink: 0;
+            }
+
+            /* Main body */
+            .ticker-body {
+                background: rgba(10, 10, 20, 0.92);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                padding: 10px 16px 10px 12px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            /* Cricket ball icon area */
+            .ticker-icon {
+                font-size: 18px;
+                line-height: 1;
+                opacity: 0.85;
+            }
+
+            /* Score number */
+            .ticker-score {
+                font-size: 42px;
+                font-weight: 700;
+                color: #ffffff;
+                line-height: 1;
+                letter-spacing: -1px;
+            }
+
+            /* Divider */
+            .ticker-sep {
+                width: 1px;
+                height: 36px;
+                background: rgba(255,255,255,0.15);
+                flex-shrink: 0;
+            }
+
+            /* Overs block */
+            .ticker-overs {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1px;
+            }
+            .ticker-overs-lbl {
+                font-family: 'Roboto Condensed', sans-serif;
+                font-size: 9px;
+                letter-spacing: 2px;
+                color: rgba(255,255,255,0.4);
+                text-transform: uppercase;
+            }
+            .ticker-overs-val {
+                font-size: 20px;
+                font-weight: 700;
+                color: #f0c040;
+                line-height: 1;
+            }
+
+            /* Innings pip */
+            .ticker-innings {
+                font-family: 'Roboto Condensed', sans-serif;
+                font-size: 9px;
+                letter-spacing: 1.5px;
+                color: rgba(255,255,255,0.3);
+                text-transform: uppercase;
+                align-self: flex-end;
+                padding-bottom: 2px;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     d = get_match()
-    st.markdown(f'<div class="ticker"><span class="r-txt">{d["runs"]}</span><span style="font-size:18px;opacity:0.8;">({d["balls"]//6}.{d["balls"]%6}/{d["match_overs"]})</span></div>', unsafe_allow_html=True)
+    innings     = int(d.get("innings") or 1)
+    overs_str   = f"{d['balls']//6}.{d['balls']%6}"
+    max_overs   = int(d['match_overs'])
+    innings_lbl = f"INN {innings}"
+
+    st.markdown(f"""
+        <div class="ticker">
+            <div class="ticker-accent"></div>
+            <div class="ticker-body">
+                <div class="ticker-icon">🏏</div>
+                <div class="ticker-score">{d['runs']}</div>
+                <div class="ticker-sep"></div>
+                <div class="ticker-overs">
+                    <div class="ticker-overs-lbl">Overs</div>
+                    <div class="ticker-overs-val">{overs_str}</div>
+                </div>
+                <div class="ticker-sep"></div>
+                <div class="ticker-overs">
+                    <div class="ticker-overs-lbl">Max</div>
+                    <div class="ticker-overs-val">{max_overs}</div>
+                </div>
+                <div class="ticker-innings">{innings_lbl}</div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
     import time; time.sleep(2); st.rerun()
 
+# ════════════════════════════════════════════════════════
+#  MAIN APP
+# ════════════════════════════════════════════════════════
 else:
     st.markdown("""
         <style>
@@ -61,10 +188,7 @@ else:
             }
 
             /* ── INNINGS BADGE ── */
-            .innings-badge {
-                text-align: center;
-                margin-bottom: 6px;
-            }
+            .innings-badge { text-align: center; margin-bottom: 6px; }
             .innings-badge span {
                 background: rgba(240,192,64,0.18);
                 color: #f0c040;
@@ -90,29 +214,20 @@ else:
                 margin-bottom: 14px;
                 backdrop-filter: blur(10px);
             }
-            .score-divider {
-                width: 1px;
-                height: 60px;
-                background: rgba(255,255,255,0.15);
-            }
+            .score-divider { width: 1px; height: 60px; background: rgba(255,255,255,0.15); }
             .score-col { text-align: center; }
             .lbl {
                 color: rgba(255,255,255,0.5);
                 font-family: 'Roboto Condensed', sans-serif;
-                font-size: 13px;
-                font-weight: 700;
-                letter-spacing: 3px;
-                text-transform: uppercase;
-                display: block;
-                margin-bottom: 2px;
+                font-size: 13px; font-weight: 700;
+                letter-spacing: 3px; text-transform: uppercase;
+                display: block; margin-bottom: 2px;
             }
             .val {
                 color: #ffffff;
                 font-family: 'Oswald', sans-serif;
-                font-size: 72px;
-                font-weight: 700;
-                display: block;
-                line-height: 1;
+                font-size: 72px; font-weight: 700;
+                display: block; line-height: 1;
             }
 
             /* ── TARGET BAR ── */
@@ -125,30 +240,66 @@ else:
                 margin-bottom: 12px;
                 font-family: 'Roboto Condensed', sans-serif;
                 color: #f0c040;
-                font-size: 15px;
-                font-weight: 700;
-                letter-spacing: 1px;
+                font-size: 15px; font-weight: 700; letter-spacing: 1px;
             }
 
-            /* ── REMOVE STREAMLIT GAPS ── */
-            [data-testid="stHorizontalBlock"] {
-                gap: 8px !important;
-                flex-wrap: nowrap !important;
+            /* ── OVERLAY LINK BOX ── */
+            .overlay-box {
+                background: rgba(255,255,255,0.04);
+                border: 1px solid rgba(255,255,255,0.1);
+                border-radius: 14px;
+                padding: 14px 16px;
+                margin: 18px 0 4px 0;
             }
+            .overlay-box-title {
+                font-family: 'Roboto Condensed', sans-serif;
+                font-size: 10px;
+                letter-spacing: 3px;
+                color: rgba(255,255,255,0.35);
+                text-transform: uppercase;
+                margin-bottom: 8px;
+            }
+            .overlay-link-row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                background: rgba(0,0,0,0.3);
+                border: 1px solid rgba(240,192,64,0.2);
+                border-radius: 8px;
+                padding: 8px 12px;
+            }
+            .overlay-link-icon { font-size: 16px; flex-shrink: 0; }
+            .overlay-link-url {
+                font-family: 'Roboto Condensed', sans-serif;
+                font-size: 12px;
+                color: #f0c040;
+                letter-spacing: 0.3px;
+                word-break: break-all;
+                flex: 1;
+            }
+            .overlay-hint {
+                font-family: 'Roboto Condensed', sans-serif;
+                font-size: 10px;
+                color: rgba(255,255,255,0.25);
+                letter-spacing: 1.5px;
+                text-transform: uppercase;
+                margin-top: 6px;
+                text-align: center;
+            }
+
+            /* ── STREAMLIT GAPS ── */
+            [data-testid="stHorizontalBlock"] { gap: 8px !important; flex-wrap: nowrap !important; }
             [data-testid="stColumn"] { padding: 0 !important; min-width: 0 !important; }
 
             /* ── MAIN SCORING BUTTONS ── */
             .main-btn button {
-                width: 100% !important;
-                height: 100px !important;
+                width: 100% !important; height: 100px !important;
                 background: rgba(255,255,255,0.07) !important;
                 color: white !important;
                 font-family: 'Oswald', sans-serif !important;
-                font-size: 42px !important;
-                font-weight: 700 !important;
+                font-size: 42px !important; font-weight: 700 !important;
                 border: 1px solid rgba(255,255,255,0.12) !important;
-                border-radius: 12px !important;
-                padding: 0 !important;
+                border-radius: 12px !important; padding: 0 !important;
             }
             .btn-four button {
                 background: rgba(52,168,83,0.2) !important;
@@ -161,56 +312,46 @@ else:
                 color: #f0c040 !important;
             }
             .btn-undo button {
-                width: 100% !important;
-                height: 100px !important;
+                width: 100% !important; height: 100px !important;
                 background: rgba(235,87,87,0.15) !important;
                 border: 1px solid rgba(235,87,87,0.3) !important;
                 border-radius: 12px !important;
                 color: #eb5757 !important;
                 font-family: 'Oswald', sans-serif !important;
-                font-size: 20px !important;
-                font-weight: 700 !important;
+                font-size: 20px !important; font-weight: 700 !important;
             }
 
             /* ── SECTION HEADERS ── */
             .section-hdr {
                 color: rgba(255,255,255,0.45);
                 font-family: 'Roboto Condensed', sans-serif;
-                font-size: 11px;
-                font-weight: 700;
-                letter-spacing: 3px;
-                text-transform: uppercase;
+                font-size: 11px; font-weight: 700;
+                letter-spacing: 3px; text-transform: uppercase;
                 text-align: center;
                 padding: 14px 0 6px 0;
             }
 
             /* ── EXTRA BUTTONS ── */
             .extra-btn button {
-                width: 100% !important;
-                height: 52px !important;
+                width: 100% !important; height: 52px !important;
                 background: rgba(255,255,255,0.06) !important;
                 color: rgba(255,255,255,0.85) !important;
                 font-family: 'Roboto Condensed', sans-serif !important;
-                font-size: 14px !important;
-                font-weight: 700 !important;
+                font-size: 14px !important; font-weight: 700 !important;
                 border: 1px solid rgba(255,255,255,0.1) !important;
-                border-radius: 10px !important;
-                padding: 0 !important;
+                border-radius: 10px !important; padding: 0 !important;
             }
 
             /* ── RESET BUTTON ── */
             .reset-btn button {
-                width: 100% !important;
-                height: 52px !important;
+                width: 100% !important; height: 52px !important;
                 background: rgba(235,87,87,0.1) !important;
                 color: rgba(235,87,87,0.8) !important;
                 font-family: 'Roboto Condensed', sans-serif !important;
-                font-size: 16px !important;
-                font-weight: 700 !important;
+                font-size: 16px !important; font-weight: 700 !important;
                 letter-spacing: 2px !important;
                 border: 1px solid rgba(235,87,87,0.25) !important;
-                border-radius: 12px !important;
-                margin-top: 14px !important;
+                border-radius: 12px !important; margin-top: 14px !important;
             }
 
             /* ── INNINGS OVER SCREEN ── */
@@ -218,51 +359,36 @@ else:
                 background: rgba(255,255,255,0.05);
                 border: 1px solid rgba(255,255,255,0.1);
                 border-radius: 20px;
-                padding: 32px 20px;
-                text-align: center;
-                margin: 20px 0;
+                padding: 32px 20px; text-align: center; margin: 20px 0;
             }
             .innings-over-box h2 {
                 font-family: 'Oswald', sans-serif;
-                color: #f0c040;
-                font-size: 32px;
-                margin-bottom: 8px;
+                color: #f0c040; font-size: 32px; margin-bottom: 8px;
             }
             .innings-over-box p {
                 font-family: 'Roboto Condensed', sans-serif;
-                color: rgba(255,255,255,0.6);
-                font-size: 16px;
-                margin-bottom: 24px;
+                color: rgba(255,255,255,0.6); font-size: 16px; margin-bottom: 24px;
             }
             .innings-over-box .big-score {
                 font-family: 'Oswald', sans-serif;
-                color: white;
-                font-size: 64px;
-                font-weight: 700;
-                line-height: 1;
-                margin-bottom: 4px;
+                color: white; font-size: 64px; font-weight: 700;
+                line-height: 1; margin-bottom: 4px;
             }
             .innings-over-box .big-score-lbl {
                 font-family: 'Roboto Condensed', sans-serif;
-                color: rgba(255,255,255,0.45);
-                font-size: 12px;
-                letter-spacing: 3px;
-                text-transform: uppercase;
-                margin-bottom: 28px;
+                color: rgba(255,255,255,0.45); font-size: 12px;
+                letter-spacing: 3px; text-transform: uppercase; margin-bottom: 28px;
             }
 
             /* ── PRIMARY ACTION BUTTON ── */
             .start-btn button {
-                width: 100% !important;
-                height: 60px !important;
+                width: 100% !important; height: 60px !important;
                 background: linear-gradient(135deg, #f0c040, #e6a817) !important;
                 color: #1a1a2e !important;
                 font-family: 'Oswald', sans-serif !important;
-                font-size: 22px !important;
-                font-weight: 700 !important;
+                font-size: 22px !important; font-weight: 700 !important;
                 letter-spacing: 2px !important;
-                border: none !important;
-                border-radius: 14px !important;
+                border: none !important; border-radius: 14px !important;
             }
 
             /* ── MATCH RESULT ── */
@@ -270,75 +396,74 @@ else:
                 background: rgba(240,192,64,0.12);
                 border: 1px solid rgba(240,192,64,0.35);
                 border-radius: 20px;
-                padding: 32px 20px;
-                text-align: center;
-                margin: 20px 0;
+                padding: 32px 20px; text-align: center; margin: 20px 0;
             }
             .result-box h2 {
                 font-family: 'Oswald', sans-serif;
-                color: #f0c040;
-                font-size: 36px;
-                margin-bottom: 10px;
+                color: #f0c040; font-size: 36px; margin-bottom: 10px;
             }
             .result-box p {
                 font-family: 'Roboto Condensed', sans-serif;
-                color: rgba(255,255,255,0.7);
-                font-size: 18px;
-                margin-bottom: 24px;
+                color: rgba(255,255,255,0.7); font-size: 18px; margin-bottom: 24px;
             }
 
             /* ── SETUP SCREEN ── */
             .setup-title {
                 font-family: 'Oswald', sans-serif;
-                color: white;
-                font-size: 36px;
-                text-align: center;
-                margin-bottom: 4px;
+                color: white; font-size: 36px; text-align: center; margin-bottom: 4px;
             }
             .setup-sub {
                 font-family: 'Roboto Condensed', sans-serif;
-                color: rgba(255,255,255,0.4);
-                font-size: 13px;
-                letter-spacing: 3px;
-                text-align: center;
-                margin-bottom: 28px;
+                color: rgba(255,255,255,0.4); font-size: 13px;
+                letter-spacing: 3px; text-align: center; margin-bottom: 28px;
             }
             label, .stNumberInput label {
                 color: rgba(255,255,255,0.6) !important;
                 font-family: 'Roboto Condensed', sans-serif !important;
-                font-size: 13px !important;
-                letter-spacing: 2px !important;
+                font-size: 13px !important; letter-spacing: 2px !important;
             }
 
             /* ── CREDIT FOOTER ── */
             .credit {
-                text-align: center;
-                margin-top: 28px;
+                text-align: center; margin-top: 28px;
                 padding-top: 16px;
                 border-top: 1px solid rgba(255,255,255,0.07);
             }
             .credit span {
                 font-family: 'Roboto Condensed', sans-serif;
-                font-size: 11px;
-                letter-spacing: 2px;
-                color: rgba(255,255,255,0.2);
-                text-transform: uppercase;
+                font-size: 11px; letter-spacing: 2px;
+                color: rgba(255,255,255,0.2); text-transform: uppercase;
             }
-            .credit strong {
-                color: rgba(240,192,64,0.5);
-                font-weight: 700;
-            }
+            .credit strong { color: rgba(240,192,64,0.5); font-weight: 700; }
         </style>
     """, unsafe_allow_html=True)
 
     d = get_match()
     if "started" not in st.session_state: st.session_state.started = False
 
+    OVERLAY_URL = "https://score-easy.streamlit.app/?mode=overlay"
+
     # ── SETUP SCREEN ──
     if not st.session_state.started:
         st.markdown("<div class='setup-title'>🏏 Cricket</div>", unsafe_allow_html=True)
         st.markdown("<div class='setup-sub'>MATCH SETUP</div>", unsafe_allow_html=True)
         ov_in = st.number_input("MATCH OVERS", min_value=1, value=int(d['match_overs']))
+
+        # Overlay link box
+        st.markdown(f"""
+            <div class="overlay-box">
+                <div class="overlay-box-title">📺 &nbsp;Score Overlay Link</div>
+                <div class="overlay-link-row">
+                    <div class="overlay-link-icon">🔗</div>
+                    <div class="overlay-link-url">{OVERLAY_URL}</div>
+                </div>
+                <div class="overlay-hint">Copy &amp; add as browser source in OBS / StreamLabs</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # Streamlit native copy button
+        st.code(OVERLAY_URL, language=None)
+
         st.markdown('<div class="start-btn">', unsafe_allow_html=True)
         if st.button("START MATCH", use_container_width=True):
             supabase.table("match_data").update({
@@ -351,8 +476,8 @@ else:
         st.markdown('<div class="credit"><span>Created by <strong>Amanullah Khan</strong></span></div>', unsafe_allow_html=True)
 
     else:
-        max_balls    = int(d['match_overs']) * 6
-        innings      = int(d.get('innings') or 1)
+        max_balls     = int(d['match_overs']) * 6
+        innings       = int(d.get('innings') or 1)
         innings1_runs = int(d.get('innings1_runs') or 0)
         current_balls = int(d['balls'])
         current_runs  = int(d['runs'])
@@ -371,11 +496,8 @@ else:
             st.markdown('<div class="start-btn">', unsafe_allow_html=True)
             if st.button("START 2ND INNINGS", use_container_width=True):
                 supabase.table("match_data").update({
-                    "innings": 2,
-                    "innings1_runs": current_runs,
-                    "runs": 0,
-                    "balls": 0,
-                    "history": "[]"
+                    "innings": 2, "innings1_runs": current_runs,
+                    "runs": 0, "balls": 0, "history": "[]"
                 }).eq("id", 1).execute()
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
@@ -435,7 +557,7 @@ else:
             """, unsafe_allow_html=True)
 
             if innings == 2:
-                needed = innings1_runs - current_runs + 1
+                needed     = innings1_runs - current_runs + 1
                 balls_left = max_balls - current_balls
                 overs_left = f"{balls_left//6}.{balls_left%6}"
                 if needed > 0:
@@ -502,5 +624,4 @@ else:
                 }).eq("id", 1).execute()
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
-
             st.markdown('<div class="credit"><span>Created by <strong>Amanullah Khan</strong></span></div>', unsafe_allow_html=True)
