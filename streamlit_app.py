@@ -95,11 +95,11 @@ if params.get("mode") == "overlay":
         </style>
     """, unsafe_allow_html=True)
 
-    d = get_match()
+    d             = get_match()
     innings       = int(d.get("innings") or 1)
-    overs_str     = f"{d['balls']//6}.{d['balls']%6}"
+    overs_str     = str(d['balls']//6) + "." + str(d['balls']%6)
     max_overs     = int(d['match_overs'])
-    innings_lbl   = f"INN {innings}"
+    innings_lbl   = "INN " + str(innings)
     innings1_runs = int(d.get("innings1_runs") or 0)
     current_runs  = int(d["runs"])
     needed        = innings1_runs - current_runs + 1
@@ -107,43 +107,28 @@ if params.get("mode") == "overlay":
     need_val      = max(0, needed)
     need_color    = "#ff6b6b" if needed > 0 else "#6fcf97"
 
-    if innings == 2:
-        target_html = (
-            '<div class="ticker-sep"></div>'
-            '<div class="ticker-overs">'
-            '<div class="ticker-overs-lbl">Target</div>'
-            f'<div class="ticker-overs-val" style="color:#c8c8c8;">{target_val}</div>'
-            '</div>'
-            '<div class="ticker-sep"></div>'
-            '<div class="ticker-overs">'
-            '<div class="ticker-overs-lbl">Need</div>'
-            f'<div class="ticker-overs-val" style="color:{need_color};">{need_val}</div>'
-            '</div>'
-        )
-    else:
-        target_html = ""
+    # Build the full ticker HTML as a plain string — no nested f-strings
+    ticker_html  = '<div class="ticker">'
+    ticker_html += '<div class="ticker-accent"></div>'
+    ticker_html += '<div class="ticker-body">'
+    ticker_html += '<div class="ticker-icon">🏏</div>'
+    ticker_html += '<div class="ticker-score">' + str(current_runs) + '</div>'
+    ticker_html += '<div class="ticker-sep"></div>'
+    ticker_html += '<div class="ticker-overs"><div class="ticker-overs-lbl">Overs</div><div class="ticker-overs-val">' + overs_str + '</div></div>'
+    ticker_html += '<div class="ticker-sep"></div>'
+    ticker_html += '<div class="ticker-overs"><div class="ticker-overs-lbl">Max</div><div class="ticker-overs-val">' + str(max_overs) + '</div></div>'
 
-    st.markdown(f"""
-        <div class="ticker">
-            <div class="ticker-accent"></div>
-            <div class="ticker-body">
-                <div class="ticker-icon">🏏</div>
-                <div class="ticker-score">{current_runs}</div>
-                <div class="ticker-sep"></div>
-                <div class="ticker-overs">
-                    <div class="ticker-overs-lbl">Overs</div>
-                    <div class="ticker-overs-val">{overs_str}</div>
-                </div>
-                <div class="ticker-sep"></div>
-                <div class="ticker-overs">
-                    <div class="ticker-overs-lbl">Max</div>
-                    <div class="ticker-overs-val">{max_overs}</div>
-                </div>
-                {target_html}
-                <div class="ticker-innings">{innings_lbl}</div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    if innings == 2:
+        ticker_html += '<div class="ticker-sep"></div>'
+        ticker_html += '<div class="ticker-overs"><div class="ticker-overs-lbl">Target</div><div class="ticker-overs-val" style="color:#c8c8c8;">' + str(target_val) + '</div></div>'
+        ticker_html += '<div class="ticker-sep"></div>'
+        ticker_html += '<div class="ticker-overs"><div class="ticker-overs-lbl">Need</div><div class="ticker-overs-val" style="color:' + need_color + ';">' + str(need_val) + '</div></div>'
+
+    ticker_html += '<div class="ticker-innings">' + innings_lbl + '</div>'
+    ticker_html += '</div>'
+    ticker_html += '</div>'
+
+    st.markdown(ticker_html, unsafe_allow_html=True)
 
     time.sleep(2)
     st.rerun()
@@ -328,9 +313,9 @@ else:
         # ── INNINGS 2 COMPLETE → RESULT ──
         elif innings == 2 and innings_over:
             if current_runs > innings1_runs:
-                result = f"Team 2 wins by {current_runs - innings1_runs} runs! 🎉"
+                result = "Team 2 wins by " + str(current_runs - innings1_runs) + " runs! 🎉"
             elif current_runs < innings1_runs:
-                result = f"Team 1 wins by {innings1_runs - current_runs} runs! 🎉"
+                result = "Team 1 wins by " + str(innings1_runs - current_runs) + " runs! 🎉"
             else:
                 result = "It's a tie! 🤝"
             st.markdown(f"""
@@ -354,7 +339,7 @@ else:
 
         # ── ACTIVE SCORING ──
         else:
-            st.markdown(f'<div class="innings-badge"><span>{"1st" if innings == 1 else "2nd"} Innings</span></div>', unsafe_allow_html=True)
+            st.markdown('<div class="innings-badge"><span>' + ("1st" if innings == 1 else "2nd") + ' Innings</span></div>', unsafe_allow_html=True)
             st.markdown(f"""
                 <div class="score-header">
                     <div class="score-col">
@@ -372,11 +357,11 @@ else:
             if innings == 2:
                 needed     = innings1_runs - current_runs + 1
                 balls_left = max_balls - current_balls
-                overs_left = f"{balls_left//6}.{balls_left%6}"
+                overs_left = str(balls_left//6) + "." + str(balls_left%6)
                 if needed > 0:
-                    st.markdown(f'<div class="target-bar">🎯 Need {needed} runs in {overs_left} overs</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="target-bar">🎯 Need ' + str(needed) + ' runs in ' + overs_left + ' overs</div>', unsafe_allow_html=True)
                 else:
-                    st.markdown(f'<div class="target-bar">✅ Target achieved!</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="target-bar">✅ Target achieved!</div>', unsafe_allow_html=True)
 
             c1, c2, c3 = st.columns(3)
             with c1:
