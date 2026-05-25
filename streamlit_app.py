@@ -81,7 +81,7 @@ else:
             /* Buttons: Black, Sharp Edges, Perfectly Square */
             .stButton > button {
                 width: 100% !important;
-                aspect-ratio: 1 / 1 !important;
+                aspect-ratio: 2 / 3 !important;
                 background-color: black !important;
                 color: white !important;
                 font-size: 38px !important;
