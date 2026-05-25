@@ -1,111 +1,128 @@
 import streamlit as st
 from supabase import create_client
 
-# 1. DATABASE CONNECTION (Embedded as requested)
+# --- DB CONNECTION ---
 URL = "https://wkwxtnzdisclwbrygpez.supabase.co"
 KEY = "sb_publishable_hQXQy84zDzyyT6Q2cvVIQA_6qqwY_uA"
 supabase = create_client(URL, KEY)
 
-# 2. DATA FUNCTIONS
+# --- APP CONFIG ---
+st.set_page_config(page_title="Cricket Pro Scorer", layout="centered")
+
+# CSS for a professional grid and UI
+st.markdown("""
+    <style>
+    .stButton>button { height: 80px; font-size: 24px !important; font-weight: bold; border-radius: 10px; }
+    .out-btn button { background-color: #ff4b4b !important; color: white !important; }
+    .boundary-btn button { border: 2px solid #8bc34a !important; }
+    [data-testid="stMetricValue"] { font-size: 48px !important; }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- DATA HELPERS ---
 def get_match():
     return supabase.table("match_data").select("*").eq("id", 1).single().execute().data
 
-def update_score(run_val, ball_inc=1):
-    d = get_match()
-    supabase.table("match_data").update({
-        "runs": d['runs'] + run_val, 
-        "balls": d['balls'] + ball_inc
-    }).eq("id", 1).execute()
+def update_db(updates):
+    supabase.table("match_data").update(updates).eq("id", 1).execute()
 
-def reset_match():
-    supabase.table("match_data").update({
-        "runs": 0, "balls": 0, "target": 0
-    }).eq("id", 1).execute()
-
-# 3. INTERFACE LOGIC
+# --- APP LOGIC ---
 params = st.query_params
+
+# 1. OVERLAY VIEW
 if params.get("mode") == "overlay":
-    # --- CAMERA OVERLAY VIEW ---
-    st.markdown("""
-        <style>
-            [data-testid="stAppViewContainer"] { background-color: rgba(0,0,0,0); }
-            .ticker {
-                background: linear-gradient(90deg, #8bc34a 0%, #2e7d32 100%);
-                color: white; padding: 12px 20px; border-radius: 12px;
-                font-family: 'Arial Black', sans-serif; display: flex; 
-                justify-content: space-between; align-items: center; width: 320px;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-            }
-        </style>
-    """, unsafe_allow_html=True)
-    
+    st.empty()
     d = get_match()
     ov = f"{d['balls']//6}.{d['balls']%6}"
-    
     st.markdown(f"""
-        <div class="ticker">
-            <div style="font-size: 30px;">{d['runs']} <span style="font-size:18px;">({ov})</span></div>
-            <div style="font-size: 14px; text-align: right; line-height:1.2;">
-                TGT: {d['target']}<br>MAX: {d['match_overs']} OV
-            </div>
+        <div style="background: rgba(0,0,0,0.8); color: white; padding: 15px; border-radius: 15px; border-left: 10px solid #8bc34a; width: fit-content; font-family: sans-serif;">
+            <div style="font-size: 14px; opacity: 0.8;">LIVE MATCH</div>
+            <div style="font-size: 36px; font-weight: bold;">{d['runs']} <span style="font-size: 20px; font-weight: normal;">({ov}/{d['match_overs']})</span></div>
+            {f'<div style="font-size: 16px; color: #8bc34a;">TARGET: {d["target"]}</div>' if d['target'] > 0 else ''}
         </div>
     """, unsafe_allow_html=True)
-    st.rerun() 
+    st.rerun()
 
+# 2. MAIN APP
 else:
-    # --- MOBILE CONTROLLER VIEW ---
-    st.set_page_config(page_title="Cricket Scorer", layout="centered")
-    data = get_match()
-    
-    # Simple Setup Section
-    with st.expander("Match Settings (Overs/Target)"):
-        new_target = st.number_input("Set Target", value=data['target'])
-        if st.button("Update Target", use_container_width=True):
-            supabase.table("match_data").update({"target": new_target}).eq("id", 1).execute()
+    # Initialize session state for the start screen
+    if "started" not in st.session_state:
+        st.session_state.started = False
+
+    d = get_match()
+
+    # START SCREEN
+    if not st.session_state.started:
+        st.title("🏏 Match Setup")
+        overs = st.number_input("Select Match Overs", min_value=1, max_value=50, value=int(d['match_overs']))
+        target = st.number_input("Set Target (0 if 1st Innings)", min_value=0, value=int(d['target']))
+        
+        if st.button("START MATCH", use_container_width=True, type="primary"):
+            update_db({"match_overs": overs, "target": target, "runs": 0, "balls": 0})
+            st.session_state.started = True
             st.rerun()
 
-    # Big Metrics for visibility
-    c1, c2 = st.columns(2)
-    c1.metric("SCORE", data['runs'])
-    c2.metric("OVERS", f"{data['balls']//6}.{data['balls']%6}")
+    # SCORING SCREEN
+    else:
+        # Header Metrics
+        col_m1, col_m2 = st.columns(2)
+        ov_display = f"{d['balls']//6}.{d['balls']%6}"
+        col_m1.metric("RUNS", d['runs'])
+        col_m2.metric("OVERS", f"{ov_display} / {d['match_overs']}")
 
-    # Scoring Grid (Large buttons for mobile)
-    st.write("### Record Runs")
-    r1_col1, r1_col2, r1_col3 = st.columns(3)
-    r2_col1, r2_col2, r2_col3 = st.columns(3)
-    
-    if r1_col1.button("0", use_container_width=True): update_score(0); st.rerun()
-    if r1_col2.button("1", use_container_width=True): update_score(1); st.rerun()
-    if r1_col3.button("2", use_container_width=True): update_score(2); st.rerun()
-    if r2_col1.button("3", use_container_width=True): update_score(3); st.rerun()
-    if r2_col2.button("4", use_container_width=True, type="primary"): update_score(4); st.rerun()
-    if r2_col3.button("6", use_container_width=True, type="primary"): update_score(6); st.rerun()
+        st.divider()
 
-    st.divider()
+        # SCORING GRID (3x4 Layout)
+        # Row 1: 0, 1, 2
+        r1c1, r1c2, r1c3 = st.columns(3)
+        if r1c1.button("0", use_container_width=True): 
+            update_db({"runs": d['runs'], "balls": d['balls']+1}); st.rerun()
+        if r1c2.button("1", use_container_width=True): 
+            update_db({"runs": d['runs']+1, "balls": d['balls']+1}); st.rerun()
+        if r1c3.button("2", use_container_width=True): 
+            update_db({"runs": d['runs']+2, "balls": d['balls']+1}); st.rerun()
 
-    # Extras with simple popover selection
-    st.write("### Extras")
-    ex1, ex2 = st.columns(2)
-    
-    with ex1:
-        with st.popover("WIDE +", use_container_width=True):
-            for r in range(7):
-                if st.button(f"WD + {r}", key=f"wd{r}", use_container_width=True):
-                    update_score(1 + r, ball_inc=0); st.rerun()
-    with ex2:
-        with st.popover("NO BALL +", use_container_width=True):
-            for r in range(7):
-                if st.button(f"NB + {r}", key=f"nb{r}", use_container_width=True):
-                    update_score(1 + r, ball_inc=0); st.rerun()
+        # Row 2: 3, 4, 6
+        r2c1, r2c2, r2c3 = st.columns(3)
+        if r2c1.button("3", use_container_width=True): 
+            update_db({"runs": d['runs']+3, "balls": d['balls']+1}); st.rerun()
+        with r2c2: st.markdown('<div class="boundary-btn">', unsafe_allow_html=True)
+        if r2c2.button("4", use_container_width=True): 
+            update_db({"runs": d['runs']+4, "balls": d['balls']+1}); st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        with r2c3: st.markdown('<div class="boundary-btn">', unsafe_allow_html=True)
+        if r2c3.button("6", use_container_width=True): 
+            update_db({"runs": d['runs']+6, "balls": d['balls']+1}); st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.write("") 
-    if st.button("🔄 Reset Match", type="secondary", use_container_width=True):
-        reset_match(); st.rerun()
+        # Row 3: WD, NB, Reset
+        r3c1, r3c2, r3c3 = st.columns(3)
+        
+        # WIDE LOGIC (No Ball increase)
+        with r3c1:
+            with st.popover("WD", use_container_width=True):
+                st.write("Extra runs on Wide?")
+                extra_wd = st.radio("Runs", [0, 1, 2, 3, 4, 6], horizontal=True, key="wd_sel")
+                if st.button("Confirm Wide"):
+                    update_db({"runs": d['runs'] + 1 + extra_wd})
+                    st.rerun()
 
-    # Overlay Link Helper
-    st.markdown("---")
-    st.write("🔗 **Overlay Link for Prism Live / CameraFi:**")
-    # This automatically detects the current app URL
-    base_url = st.get_option("browser.gatherUsageStats") 
-    st.code(f"https://share.streamlit.io/YOUR_GITHUB_PATH/?mode=overlay")
-    st.caption("Note: Replace the link above with your actual browser URL + '?mode=overlay'")
+        # NO BALL LOGIC (No Ball increase)
+        with r3c2:
+            with st.popover("NB", use_container_width=True):
+                st.write("Extra runs on No Ball?")
+                extra_nb = st.radio("Runs", [0, 1, 2, 3, 4, 6], horizontal=True, key="nb_sel")
+                if st.button("Confirm No Ball"):
+                    update_db({"runs": d['runs'] + 1 + extra_nb})
+                    st.rerun()
+
+        if r3c3.button("🔄", use_container_width=True):
+            st.session_state.started = False
+            st.rerun()
+
+        # --- OVERLAY TOOLS ---
+        st.divider()
+        overlay_url = f"https://{st.get_option('browser.gatherUsageStats') or 'your-app'}.streamlit.app/?mode=overlay"
+        if st.button("📋 Copy Overlay Link", use_container_width=True):
+            st.code(overlay_url)
+            st.success("Copy the link above into Prism/CameraFi")
